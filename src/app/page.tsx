@@ -364,6 +364,57 @@ export default function HomePage() {
         el.style.transform = `translate(${p.offsetX}px, ${p.offsetY + floatY}px) rotate(${floatRot}deg)`;
       });
 
+      // ── Meteors ──────────────────────────────────────────
+      const W = heroRect.width;
+      const H = heroRect.height;
+
+      meteors.forEach((m) => {
+        m.x += m.vx;
+        m.y += m.vy;
+        if (m.x < -80 || m.x > W + 80 || m.y < -80 || m.y > H + 80) {
+          Object.assign(m, mkMeteorState(W, H, m.el));
+        }
+        const ang = Math.atan2(m.vy, m.vx) * (180 / Math.PI);
+        m.el.style.transform = `translate(${m.x}px, ${m.y}px) rotate(${ang}deg)`;
+      });
+
+      // ── Ships & Lasers ────────────────────────────────────
+      ships.forEach((s) => {
+        s.angle += s.speed / 60;
+
+        const sx = s.cx * W + Math.cos(s.angle) * s.rx;
+        const sy = s.cy * H + Math.sin(s.angle) * s.ry;
+
+        // Tangent direction (derivative of orbit)
+        const tdx = -Math.sin(s.angle) * s.rx * s.speed;
+        const tdy =  Math.cos(s.angle) * s.ry * s.speed;
+        const rot  = Math.atan2(tdy, tdx) * (180 / Math.PI) - 90;
+
+        s.el.style.transform = `translate(${sx}px, ${sy}px) rotate(${rot}deg)`;
+
+        // Fire laser
+        s.fireIn--;
+        if (s.fireIn <= 0) {
+          s.fireIn = 100 + Math.floor(Math.random() * 120);
+          spawnLaser(sx, sy, tdx, tdy);
+        }
+      });
+
+      // Advance + cull lasers (reverse iterate to splice safely)
+      for (let i = lasers.length - 1; i >= 0; i--) {
+        const l = lasers[i];
+        l.x += l.vx;
+        l.y += l.vy;
+        l.ttl--;
+        if (l.ttl <= 0 || l.x < -30 || l.x > W + 30 || l.y < -30 || l.y > H + 30) {
+          l.el.remove();
+          lasers.splice(i, 1);
+        } else {
+          l.el.style.left = `${l.x}px`;
+          l.el.style.top  = `${l.y}px`;
+        }
+      }
+
       rafRef.current = requestAnimationFrame(tick);
     };
 

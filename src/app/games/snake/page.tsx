@@ -6,6 +6,9 @@ import PixelButton from "@/components/PixelButton";
 import { snakeReducer, type Direction } from "@/games/snake/logic";
 import { GRID_SIZE, LEVELS, POWER_UPS } from "@/games/snake/config";
 import { getHighScore, setHighScore } from "@/lib/scores";
+import { createSnakeAudio } from "@/games/snake/audio";
+import type { SnakeAudio } from "@/games/snake/audio";
+import MuteButton from "@/components/MuteButton";
 
 const GAME_KEY = "snake";
 
@@ -27,14 +30,58 @@ export default function SnakePage() {
   });
 
   const [highScore, setHS] = useState(0);
+  const [muted, setMuted] = useState(() =>
+    typeof window !== "undefined" && localStorage.getItem("snake-sound-muted") === "1"
+  );
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const audioRef = useRef<SnakeAudio | null>(null);
+  const prevScoreRef = useRef(0);
+  const prevLevelRef = useRef(0);
+  const prevStatusRef = useRef<string>("idle");
 
   const level = LEVELS[state.level] ?? LEVELS[LEVELS.length - 1];
 
   useEffect(() => {
     setHS(getHighScore(GAME_KEY));
   }, []);
+
+  // Lazy-init audio on first interaction
+  useEffect(() => {
+    const init = () => {
+      if (!audioRef.current) {
+        audioRef.current = createSnakeAudio();
+        audioRef.current.setMuted(muted);
+      }
+    };
+    window.addEventListener("pointerdown", init, { once: true });
+    window.addEventListener("keydown", init, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", init);
+      window.removeEventListener("keydown", init);
+    };
+  }, [muted]);
+
+  useEffect(() => {
+    audioRef.current?.setMuted(muted);
+    localStorage.setItem("snake-sound-muted", muted ? "1" : "0");
+  }, [muted]);
+
+  // Audio events based on state changes
+  useEffect(() => {
+    if (state.score > prevScoreRef.current) audioRef.current?.playEat();
+    prevScoreRef.current = state.score;
+  }, [state.score]);
+
+  useEffect(() => {
+    if (state.level > prevLevelRef.current) audioRef.current?.playLevelUp();
+    prevLevelRef.current = state.level;
+  }, [state.level]);
+
+  useEffect(() => {
+    if (state.status === "dead" && prevStatusRef.current !== "dead") audioRef.current?.playDie();
+    prevStatusRef.current = state.status;
+  }, [state.status]);
 
   // Game loop
   useEffect(() => {
@@ -121,6 +168,7 @@ export default function SnakePage() {
       score={state.score}
       highScore={highScore}
       onNewGame={() => dispatch({ type: "START" })}
+      actions={<MuteButton muted={muted} onToggle={() => setMuted(m => !m)} color="green" />}
     >
       {/* Active power-up indicator */}
       {activePowerUpDef && (
@@ -152,6 +200,8 @@ export default function SnakePage() {
           aspectRatio: "1",
           border: `1px solid ${snakeColor}33`,
           background: "#0a0a1a",
+          backgroundImage: `linear-gradient(to right, ${snakeColor}12 1px, transparent 1px), linear-gradient(to bottom, ${snakeColor}12 1px, transparent 1px)`,
+          backgroundSize: `calc(100% / ${GRID_SIZE}) calc(100% / ${GRID_SIZE})`,
         }}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}

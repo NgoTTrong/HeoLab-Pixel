@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Press_Start_2P, Inter } from "next/font/google";
+import { GoogleAnalytics } from "@next/third-parties/google";
 import "./globals.css";
 
 const pressStart = Press_Start_2P({
@@ -45,6 +46,7 @@ export default function RootLayout({
         <div className="scanline-overlay" />
         {children}
       </body>
+      <GoogleAnalytics gaId="G-EYW08N266H" />
     </html>
   );
 }

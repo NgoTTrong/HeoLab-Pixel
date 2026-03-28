@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import PixelButton from "@/components/PixelButton";
 import {
   GRAVITY, FLAP_IMPULSE, PIPE_WIDTH, PIPE_GAP, PIPE_SPEED,
+  PIPE_SPEED_BASE, PIPE_SPEED_MAX,
   PIPE_INTERVAL, GROUND_HEIGHT, getTimeTheme, getObstacleTheme, getMedal,
 } from "@/games/flappy/config";
 import { getHighScore, setHighScore } from "@/lib/scores";
@@ -129,7 +130,7 @@ export default function FlappyPage() {
 
   const flap = useCallback(() => {
     const s = stateRef.current;
-    if (s.status === "idle") { startGame(); return; }
+    if (s.status === "idle" || s.status === "dead") { startGame(); return; }
     if (s.status !== "playing") return;
     s.birdVY = FLAP_IMPULSE;
     audioRef.current?.playFlap();
@@ -185,7 +186,11 @@ export default function FlappyPage() {
         s.frame++;
         s.birdVY += GRAVITY;
         s.birdY += s.birdVY;
-        s.birdAngle = Math.max(-30, Math.min(90, s.birdVY * 4));
+        const targetAngle = Math.max(-30, Math.min(90, s.birdVY * 5));
+        s.birdAngle += (targetAngle - s.birdAngle) * 0.12;
+
+        // Dynamic speed: ramps up gradually with score, capped at max
+        const speed = Math.min(PIPE_SPEED_MAX, PIPE_SPEED_BASE + s.score * 0.12);
 
         // Spawn pipes
         if (s.frame % PIPE_INTERVAL === 0) {
@@ -203,7 +208,7 @@ export default function FlappyPage() {
         // Move pipes
         s.pipes = s.pipes.filter((p) => p.x + PIPE_WIDTH > -10);
         for (const pipe of s.pipes) {
-          pipe.x -= PIPE_SPEED;
+          pipe.x -= speed;
           // Score
           if (!pipe.passed && pipe.x + PIPE_WIDTH < BIRD_X) {
             pipe.passed = true;
@@ -215,7 +220,7 @@ export default function FlappyPage() {
 
         // Move clouds (parallax — slower than pipes)
         for (const cloud of s.clouds) {
-          cloud.x -= PIPE_SPEED * 0.3;
+          cloud.x -= speed * 0.3;
           if (cloud.x + cloud.w < 0) {
             cloud.x = W + cloud.w;
             cloud.y = 40 + Math.random() * 80;
@@ -228,7 +233,7 @@ export default function FlappyPage() {
         // Move coins
         s.coins = s.coins.filter((c) => c.x > -20);
         for (const coin of s.coins) {
-          coin.x -= PIPE_SPEED;
+          coin.x -= speed;
         }
 
         // Coin collection
@@ -290,15 +295,63 @@ export default function FlappyPage() {
         }
       }
 
-      // Draw pipes
+      // Draw pipes with 3D shading
       for (const pipe of s.pipes) {
+        const px = pipe.x;
+        const PW = PIPE_WIDTH;
+        const topH = pipe.topHeight;
+        const botY = topH + PIPE_GAP;
+        const botH = H - GROUND_HEIGHT - botY;
+
+        // --- Pipe body ---
         ctx.fillStyle = obstTheme.color;
-        ctx.fillRect(pipe.x, 0, PIPE_WIDTH, pipe.topHeight);
-        ctx.fillRect(pipe.x, pipe.topHeight + PIPE_GAP, PIPE_WIDTH, H - GROUND_HEIGHT - pipe.topHeight - PIPE_GAP);
-        // Caps
+        ctx.fillRect(px, 0, PW, topH);
+        ctx.fillRect(px, botY, PW, botH);
+
+        // Left highlight (light hitting left face)
+        ctx.fillStyle = "rgba(255,255,255,0.18)";
+        ctx.fillRect(px, 0, 9, topH);
+        ctx.fillRect(px, botY, 9, botH);
+
+        // Right shadow
+        ctx.fillStyle = "rgba(0,0,0,0.28)";
+        ctx.fillRect(px + PW - 9, 0, 9, topH);
+        ctx.fillRect(px + PW - 9, botY, 9, botH);
+
+        // Center gloss strip (subtle)
+        ctx.fillStyle = "rgba(255,255,255,0.06)";
+        ctx.fillRect(px + 10, 0, 8, topH);
+        ctx.fillRect(px + 10, botY, 8, botH);
+
+        // --- Caps ---
         ctx.fillStyle = obstTheme.capColor;
-        ctx.fillRect(pipe.x - 4, pipe.topHeight - 14, PIPE_WIDTH + 8, 14);
-        ctx.fillRect(pipe.x - 4, pipe.topHeight + PIPE_GAP, PIPE_WIDTH + 8, 14);
+        ctx.fillRect(px - 4, topH - 14, PW + 8, 14);
+        ctx.fillRect(px - 4, botY, PW + 8, 14);
+
+        // Cap top edge highlight
+        ctx.fillStyle = "rgba(255,255,255,0.3)";
+        ctx.fillRect(px - 4, topH - 14, PW + 8, 3);
+        ctx.fillRect(px - 4, botY, PW + 8, 3);
+
+        // Cap left highlight
+        ctx.fillStyle = "rgba(255,255,255,0.2)";
+        ctx.fillRect(px - 4, topH - 14, 11, 14);
+        ctx.fillRect(px - 4, botY, 11, 14);
+
+        // Cap right shadow
+        ctx.fillStyle = "rgba(0,0,0,0.3)";
+        ctx.fillRect(px + PW - 3, topH - 14, 11, 14);
+        ctx.fillRect(px + PW - 3, botY, 11, 14);
+
+        // Cap bottom edge (thickness / underside)
+        ctx.fillStyle = "rgba(0,0,0,0.4)";
+        ctx.fillRect(px - 4, topH - 3, PW + 8, 3);
+        ctx.fillRect(px - 4, botY + 11, PW + 8, 3);
+
+        // Inner mouth shadow (dark inside the pipe opening)
+        ctx.fillStyle = "rgba(0,0,0,0.35)";
+        ctx.fillRect(px, topH - 14, 5, 14);   // top pipe left inner
+        ctx.fillRect(px, botY, 5, 14);         // bottom pipe left inner
       }
 
       // Draw coins
@@ -338,30 +391,68 @@ export default function FlappyPage() {
       ctx.translate(BIRD_X, s.birdY);
       ctx.rotate((s.birdAngle * Math.PI) / 180);
       if (s.status !== "dead") {
-        // Wing (behind body)
-        ctx.fillStyle = "#f5a623";
-        if (s.birdWingUp && s.status === "playing") {
-          ctx.fillRect(-5, -16, 10, 8);  // wing up
-        } else {
-          ctx.fillRect(-5, 6, 10, 8);    // wing down / idle
-        }
-        // Body
-        ctx.fillStyle = "#ffe600";
-        ctx.fillRect(-10, -9, 20, 18);
-        // Eye
-        ctx.fillStyle = "#000";
-        ctx.fillRect(3, -5, 5, 5);
-        ctx.fillStyle = "#fff";
-        ctx.fillRect(4, -4, 2, 2);
-        // Beak
-        ctx.fillStyle = "#f97316";
-        ctx.fillRect(10, -1, 7, 4);
-        // Glow
-        ctx.shadowBlur = 6;
+        const wingUp = s.birdWingUp && s.status === "playing";
+
+        // Glow base (drawn first, behind everything)
+        ctx.shadowBlur = 10;
         ctx.shadowColor = "#ffe600";
         ctx.fillStyle = "#ffe600";
         ctx.fillRect(-10, -9, 20, 18);
         ctx.shadowBlur = 0;
+
+        // Tail feathers (behind body)
+        ctx.fillStyle = "#e08c1a";
+        ctx.fillRect(-17, -5, 6, 3);   // upper tail feather
+        ctx.fillRect(-17,  2, 6, 3);   // lower tail feather
+        ctx.fillStyle = "#f5a623";
+        ctx.fillRect(-14, -2, 6, 4);   // center tail feather
+
+        // Wing
+        ctx.fillStyle = "#f5a623";
+        if (wingUp) {
+          ctx.fillRect(-7, -18, 14, 10); // wing up
+          ctx.fillStyle = "#e08c1a";
+          ctx.fillRect(-5, -22, 10,  5); // wing tip
+        } else {
+          ctx.fillRect(-7,   8, 14, 10); // wing down
+          ctx.fillStyle = "#e08c1a";
+          ctx.fillRect(-5,  15, 10,  5); // wing tip
+        }
+
+        // Body
+        ctx.fillStyle = "#ffe600";
+        ctx.fillRect(-10, -9, 20, 18);
+
+        // Belly (lighter patch)
+        ctx.fillStyle = "#fff8a0";
+        ctx.fillRect(-3, 1, 9, 7);
+
+        // Eye — sclera
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(2, -7, 7, 7);
+        // Eye — pupil
+        ctx.fillStyle = "#111111";
+        ctx.fillRect(4, -5, 4, 4);
+        // Eye — shine
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(4, -5, 2, 2);
+
+        // Rosy cheek
+        ctx.fillStyle = "rgba(255,100,100,0.4)";
+        ctx.fillRect(2, -1, 5, 3);
+
+        // Beak (open when wing is up, closed otherwise)
+        ctx.fillStyle = "#f97316";
+        if (wingUp) {
+          ctx.fillRect(9, -4, 9, 4);   // upper beak
+          ctx.fillRect(9,  1, 9, 3);   // lower beak
+          ctx.fillStyle = "#7a2e00";
+          ctx.fillRect(9,  0, 9, 1);   // mouth gap
+        } else {
+          ctx.fillRect(9, -2, 9, 5);   // closed beak
+          ctx.fillStyle = "#cc5500";
+          ctx.fillRect(9,  0, 9, 1);   // beak crease
+        }
       }
       ctx.restore();
 

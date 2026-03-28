@@ -202,6 +202,7 @@ export default function SnakePage() {
         style={{
           display: "grid",
           gridTemplateColumns: `repeat(${GRID_SIZE}, 1fr)`,
+          gridTemplateRows: `repeat(${GRID_SIZE}, 1fr)`,
           width: "min(90vw, 90vh, 500px)",
           aspectRatio: "1",
           border: `1px solid ${snakeColor}33`,
@@ -223,9 +224,18 @@ export default function SnakePage() {
           // Find snake segment index at this position
           const segIdx = state.snake.findIndex((s) => s.x === x && s.y === y);
           const isSnake = segIdx !== -1;
-          const opacity = isSnake ? Math.max(0.15, 1 - segIdx * 0.05) : 1;
+          const opacity = isSnake ? Math.max(0.2, 1 - segIdx * 0.05) : 1;
           const isTail = segIdx === state.snake.length - 1 && state.snake.length > 1;
           const isBomb = state.bomb?.pos.x === x && state.bomb?.pos.y === y;
+
+          // Pixel art taper: head slightly smaller than full, body shrinks per segment, tail = tiny dot
+          const segScale = isHead
+            ? 0.92
+            : isTail
+            ? 0.3
+            : isSnake
+            ? Math.max(0.5, 0.88 - (segIdx - 1) * 0.04)
+            : 1;
 
           return (
             <div
@@ -235,24 +245,13 @@ export default function SnakePage() {
                   ? snakeColor
                   : isSnake
                   ? `${snakeColor}${Math.round(opacity * 255).toString(16).padStart(2, "0")}`
-                  : isFood
-                  ? "transparent"
-                  : isSpawnedPowerUp
-                  ? spawnedDef?.color ?? "#fff"
-                  : isBomb
-                  ? "transparent"
                   : "transparent",
-                boxShadow: isHead
-                  ? `0 0 6px ${snakeColor}`
-                  : isFood
-                  ? "none"
-                  : "none",
-                borderRadius: isHead ? "4px" : isSnake ? "1px" : "0",
-                transform: isTail ? "scale(0.6)" : undefined,
+                boxShadow: isHead ? `0 0 8px ${snakeColor}, 0 0 14px ${snakeColor}50` : "none",
+                borderRadius: "2px",
+                transform: isSnake ? `scale(${segScale})` : undefined,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontSize: "65%",
                 transition: "background-color 0.05s",
                 position: "relative" as const,
               }}
@@ -262,33 +261,35 @@ export default function SnakePage() {
                 <>
                   <span style={{
                     position: "absolute",
-                    width: "2px", height: "2px",
+                    width: "3px", height: "3px",
                     background: "#000",
                     borderRadius: "50%",
-                    top: state.direction === "DOWN" ? "auto" : "20%",
-                    bottom: state.direction === "DOWN" ? "20%" : "auto",
-                    left: state.direction === "RIGHT" ? "auto" : state.direction === "LEFT" ? "20%" : "20%",
-                    right: state.direction === "RIGHT" ? "20%" : "auto",
+                    top: state.direction === "DOWN" ? "auto" : "22%",
+                    bottom: state.direction === "DOWN" ? "22%" : "auto",
+                    left: state.direction === "RIGHT" ? "auto" : state.direction === "LEFT" ? "18%" : "18%",
+                    right: state.direction === "RIGHT" ? "18%" : "auto",
                   }} />
                   <span style={{
                     position: "absolute",
-                    width: "2px", height: "2px",
+                    width: "3px", height: "3px",
                     background: "#000",
                     borderRadius: "50%",
-                    top: state.direction === "DOWN" ? "auto" : "20%",
-                    bottom: state.direction === "DOWN" ? "20%" : "auto",
-                    left: state.direction === "RIGHT" ? "auto" : state.direction === "LEFT" ? "20%" : "55%",
-                    right: state.direction === "RIGHT" ? "20%" : state.direction === "UP" ? "auto" : "auto",
+                    top: state.direction === "DOWN" ? "auto" : "22%",
+                    bottom: state.direction === "DOWN" ? "22%" : "auto",
+                    left: state.direction === "RIGHT" ? "auto" : state.direction === "LEFT" ? "18%" : "58%",
+                    right: state.direction === "RIGHT" ? "18%" : state.direction === "UP" ? "auto" : "auto",
                   }} />
                 </>
               )}
               {/* Food */}
-              {isFood && <span>🍎</span>}
+              {isFood && <span style={{ fontSize: "80%", lineHeight: 1, display: "flex" }}>🍎</span>}
               {/* Power-up */}
-              {!isFood && isSpawnedPowerUp && spawnedDef?.emoji}
+              {!isFood && isSpawnedPowerUp && (
+                <span style={{ fontSize: "80%", lineHeight: 1, display: "flex" }}>{spawnedDef?.emoji}</span>
+              )}
               {/* Bomb */}
               {isBomb && (
-                <span className={bombBlinking ? "animate-pulse" : ""}>💣</span>
+                <span style={{ fontSize: "80%", lineHeight: 1, display: "flex" }} className={bombBlinking ? "animate-pulse" : ""}>💣</span>
               )}
             </div>
           );

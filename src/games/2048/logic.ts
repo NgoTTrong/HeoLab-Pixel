@@ -2,8 +2,14 @@ import { TileData, GridState, GameState2048 } from "./types";
 
 let nextId = 1;
 
-function newTile(value: number): TileData {
-  return { value, id: nextId++ };
+function newTile(
+  value: number,
+  row = 0,
+  col = 0,
+  isNew = false,
+  isMerged = false
+): TileData {
+  return { value, id: nextId++, row, col, isNew, isMerged };
 }
 
 function emptyGrid(): GridState {
@@ -12,6 +18,13 @@ function emptyGrid(): GridState {
 
 function cloneGrid(grid: GridState): GridState {
   return grid.map((row) => row.map((cell) => (cell ? { ...cell } : null)));
+}
+
+// Set each tile's row/col from its actual position in the grid
+function updatePositions(grid: GridState): GridState {
+  return grid.map((row, r) =>
+    row.map((cell, c) => (cell ? { ...cell, row: r, col: c } : null))
+  );
 }
 
 function addRandomTile(grid: GridState): GridState {
@@ -24,7 +37,7 @@ function addRandomTile(grid: GridState): GridState {
   if (empty.length === 0) return grid;
   const [r, c] = empty[Math.floor(Math.random() * empty.length)];
   const g = cloneGrid(grid);
-  g[r][c] = newTile(Math.random() < 0.9 ? 2 : 4);
+  g[r][c] = newTile(Math.random() < 0.9 ? 2 : 4, r, c, true, false);
   return g;
 }
 
@@ -56,8 +69,11 @@ function compressRow(row: (TileData | null)[]): {
   scored: number;
   moved: boolean;
 } {
-  // Filter out nulls
-  const tiles = row.filter((t): t is TileData => t !== null);
+  // Filter out nulls, clear stale flags on surviving tiles
+  const tiles = row
+    .filter((t): t is TileData => t !== null)
+    .map((t) => ({ ...t, isNew: false, isMerged: false }));
+
   const result: TileData[] = [];
   let scored = 0;
   let i = 0;
@@ -65,7 +81,8 @@ function compressRow(row: (TileData | null)[]): {
   while (i < tiles.length) {
     if (i + 1 < tiles.length && tiles[i].value === tiles[i + 1].value) {
       const mergedValue = tiles[i].value * 2;
-      result.push(newTile(mergedValue));
+      // Position will be set later by updatePositions
+      result.push(newTile(mergedValue, 0, 0, false, true));
       scored += mergedValue;
       i += 2;
     } else {
@@ -78,12 +95,12 @@ function compressRow(row: (TileData | null)[]): {
   const newRow: (TileData | null)[] = [...result];
   while (newRow.length < 4) newRow.push(null);
 
-  // Check if row changed
+  // Check if row actually changed (by id comparison)
   const moved = row.some((cell, idx) => {
     const newCell = newRow[idx];
     if (!cell && !newCell) return false;
     if (!cell || !newCell) return true;
-    return cell.value !== newCell.value || cell.id !== newCell.id;
+    return cell.id !== newCell.id;
   });
 
   return { newRow, scored, moved };
@@ -124,10 +141,11 @@ export function move(state: GameState2048, direction: Direction): GameState2048 
 
   if (!anyMoved) return state;
 
-  // Rotate back
+  // Rotate back, then assign correct row/col to each tile
   let finalGrid = rotateGrid(newGrid, reverseRotations[direction]);
+  finalGrid = updatePositions(finalGrid);
 
-  // Add random tile
+  // Add random tile (already gets correct row/col + isNew=true)
   finalGrid = addRandomTile(finalGrid);
 
   const newScore = state.score + totalScored;
@@ -153,9 +171,7 @@ function canMove(grid: GridState): boolean {
     for (let c = 0; c < 4; c++) {
       if (!grid[r][c]) return true;
       const val = grid[r][c]!.value;
-      // Check right neighbor
       if (c < 3 && grid[r][c + 1] && grid[r][c + 1]!.value === val) return true;
-      // Check bottom neighbor
       if (r < 3 && grid[r + 1][c] && grid[r + 1][c]!.value === val) return true;
     }
   }

@@ -1,31 +1,130 @@
+# HeoLab Landing Wow — Implementation Plan
+
+> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+
+**Goal:** Upgrade landing page with sticky navbar, animated hero, all 9 games with filter tabs, stats section, fixed roadmap, and full social footer.
+
+**Architecture:** New `Navbar` component imported only in `page.tsx`. All landing changes in `src/app/page.tsx`. CSS keyframe added to `globals.css`. No new dependencies.
+
+**Tech Stack:** Next.js 16 App Router, TypeScript, Tailwind CSS v4, Press Start 2P + Inter.
+
+---
+
+### Task 1: Add `float` keyframe to globals.css
+
+**Files:**
+- Modify: `src/app/globals.css`
+
+**Step 1: Add keyframe after existing keyframes**
+
+Find the last `@keyframes` block in `globals.css` and add after it:
+
+```css
+@keyframes float {
+  0%   { transform: translateY(0px) rotate(0deg); }
+  100% { transform: translateY(-16px) rotate(6deg); }
+}
+
+@keyframes pulseRing {
+  0%   { transform: scale(0.8); opacity: 1; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+```
+
+**Step 2: Verify dev server still compiles**
+
+Check browser at `http://localhost:3000` — no errors.
+
+**Step 3: Commit**
+
+```bash
+git add src/app/globals.css
+git commit -m "feat: add float and pulseRing keyframes for landing hero"
+```
+
+---
+
+### Task 2: Create Navbar component
+
+**Files:**
+- Create: `src/components/Navbar.tsx`
+
+**Step 1: Write the component**
+
+```tsx
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import Link from "next/link";
+
+export default function Navbar() {
+  return (
+    <nav className="sticky top-0 z-50 bg-dark-bg/80 backdrop-blur-md border-b border-dark-border">
+      <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
+        {/* Logo */}
+        <Link href="/" className="flex items-center gap-1.5 hover:opacity-80 transition-opacity">
+          <span className="font-pixel text-neon-green text-xs">&lt;</span>
+          <span className="font-bold text-white text-base tracking-tight">HeoLab</span>
+          <span className="font-pixel text-neon-green text-xs">/&gt;</span>
+        </Link>
+
+        {/* Right links */}
+        <div className="flex items-center gap-4 sm:gap-6">
+          <Link
+            href="/games"
+            className="hidden sm:block font-pixel text-[0.45rem] text-gray-500 hover:text-neon-green transition-colors tracking-widest"
+          >
+            GAMES
+          </Link>
+          <Link
+            href="#about"
+            className="hidden sm:block font-pixel text-[0.45rem] text-gray-500 hover:text-neon-green transition-colors tracking-widest"
+          >
+            ABOUT
+          </Link>
+          <Link
+            href="/games"
+            className="font-pixel text-[0.45rem] px-3 py-1.5 border border-neon-green text-neon-green
+              hover:bg-neon-green hover:text-black transition-all duration-200 tracking-widest"
+          >
+            ▶ PLAY
+          </Link>
+        </div>
+      </div>
+    </nav>
+  );
+}
+```
+
+**Step 2: Verify**
+
+Run dev server, navigate to `http://localhost:3000` — navbar not yet visible (not imported yet).
+
+**Step 3: Commit**
+
+```bash
+git add src/components/Navbar.tsx
+git commit -m "feat: add sticky Navbar component"
+```
+
+---
+
+### Task 3: Rewrite landing page (page.tsx)
+
+**Files:**
+- Modify: `src/app/page.tsx` (full rewrite)
+
+**Step 1: Replace entire file with the following**
+
+```tsx
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 
-// ── Types ────────────────────────────────────────────────
+// ── Data ────────────────────────────────────────────────
 type Category = "ALL" | "PUZZLE" | "CASUAL" | "ARCADE";
 
-type EmojiPhysics = {
-  relX: number;
-  relY: number;
-  offsetX: number;
-  offsetY: number;
-  vx: number;
-  vy: number;
-};
-
-type Meteor = { x: number; y: number; vx: number; vy: number; el: HTMLDivElement };
-type Ship   = {
-  cx: number; cy: number; rx: number; ry: number;
-  angle: number; speed: number;
-  el: HTMLDivElement;
-  fireIn: number;
-};
-type Laser  = { x: number; y: number; vx: number; vy: number; el: HTMLDivElement; ttl: number };
-
-// ── Data ────────────────────────────────────────────────
 const allGames = [
   {
     title: "DUNGEON SWEEP",
@@ -119,26 +218,6 @@ const floatingEmojis = [
   { emoji: "🧱", top: "82%", left: "18%", duration: 3.9, delay: 0.2 },
 ];
 
-// ── Space layer helpers ──────────────────────────────────
-const mkMeteorState = (W: number, H: number, el: HTMLDivElement): Meteor => {
-  const edge = Math.floor(Math.random() * 3); // 0=top 1=left 2=right
-  const spd  = 1.2 + Math.random() * 2.0;
-  let x: number, y: number, tx: number, ty: number;
-  if (edge === 0)      { x = Math.random() * W; y = -50;    tx = Math.random() * W; ty = H + 50; }
-  else if (edge === 1) { x = -50;    y = Math.random() * H; tx = W + 50; ty = Math.random() * H; }
-  else                 { x = W + 50; y = Math.random() * H; tx = -50;    ty = Math.random() * H; }
-  const d = Math.hypot(tx - x, ty - y) || 1;
-  return { x, y, vx: (tx - x) / d * spd, vy: (ty - y) / d * spd, el };
-};
-
-const SHIP_CONFIGS = [
-  { cx: 0.20, cy: 0.30, rx: 130, ry: 55, speed:  0.40, a0: 0 },
-  { cx: 0.78, cy: 0.22, rx:  90, ry: 70, speed: -0.35, a0: Math.PI },
-  { cx: 0.55, cy: 0.72, rx: 160, ry: 45, speed:  0.50, a0: Math.PI / 2 },
-] as const;
-
-const LASER_COLORS = ["#39ff14", "#00d4ff", "#ff2d95"] as const;
-
 const stats = [
   { number: "9",  label: "GAMES" },
   { number: "∞",  label: "PLAYTIME" },
@@ -197,359 +276,33 @@ const TABS: Category[] = ["ALL", "PUZZLE", "CASUAL", "ARCADE"];
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState<Category>("ALL");
 
-  // Mouse interaction refs (no state → no re-renders)
-  const cursorRef       = useRef<HTMLDivElement>(null);
-  const heroRef         = useRef<HTMLElement>(null);
-  const emojiRefs       = useRef<(HTMLDivElement | null)[]>([]);
-  const physicsRef      = useRef<EmojiPhysics[]>([]);
-  const mouseRef        = useRef({ x: -9999, y: -9999 });
-  const rafRef          = useRef<number | null>(null);
-  const lastParticleRef = useRef(0);
-  const particleCountRef = useRef(0);
-  const liveParticlesRef = useRef<HTMLDivElement[]>([]);
-  const heroTitleRef = useRef<HTMLHeadingElement>(null);
-  const glitchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Glitch effect: periodic RGB split trigger
-  useEffect(() => {
-    const scheduleGlitch = () => {
-      const delay = 2500 + Math.random() * 3500;
-      glitchTimerRef.current = setTimeout(() => {
-        const el = heroTitleRef.current;
-        if (el) {
-          el.classList.add("glitching");
-          setTimeout(() => {
-            el.classList.remove("glitching");
-            scheduleGlitch();
-          }, 180 + Math.random() * 140);
-        } else {
-          scheduleGlitch();
-        }
-      }, delay);
-    };
-    const init = setTimeout(scheduleGlitch, 1800);
-    return () => {
-      clearTimeout(init);
-      if (glitchTimerRef.current) clearTimeout(glitchTimerRef.current);
-    };
-  }, []);
-
-  useEffect(() => {
-    const hero = heroRef.current;
-    if (!hero) return;
-
-    // ── Init physics ──────────────────────────────────────
-    const initPhysics = () => {
-      physicsRef.current = floatingEmojis.map((item) => ({
-        relX: parseFloat(item.left) / 100,
-        relY: parseFloat(item.top) / 100,
-        offsetX: 0,
-        offsetY: 0,
-        vx: 0,
-        vy: 0,
-      }));
-    };
-
-    initPhysics();
-    window.addEventListener("resize", initPhysics);
-
-    // ── Space objects (meteors + ships) ───────────────────
-    const { width: W0, height: H0 } = hero.getBoundingClientRect();
-
-    const meteors: Meteor[] = Array.from({ length: 5 }, () => {
-      const el = document.createElement("div");
-      el.style.cssText = "position:absolute;font-size:1.25rem;pointer-events:none;opacity:0.55;z-index:1;will-change:transform;user-select:none;";
-      el.textContent = "☄️";
-      hero.appendChild(el);
-      return mkMeteorState(W0, H0, el);
-    });
-
-    const ships: Ship[] = SHIP_CONFIGS.map((cfg, i) => {
-      const el = document.createElement("div");
-      el.style.cssText = "position:absolute;font-size:1rem;pointer-events:none;opacity:0.55;z-index:2;will-change:transform;user-select:none;";
-      el.textContent = "🚀";
-      hero.appendChild(el);
-      return {
-        cx: cfg.cx, cy: cfg.cy, rx: cfg.rx, ry: cfg.ry,
-        angle: cfg.a0, speed: cfg.speed, el,
-        fireIn: 80 + i * 40 + Math.floor(Math.random() * 60),
-      };
-    });
-
-    const lasers: Laser[] = [];
-
-    const spawnLaser = (sx: number, sy: number, tdx: number, tdy: number) => {
-      if (lasers.length >= 6) return;
-      const d = Math.hypot(tdx, tdy) || 1;
-      const spd = 4;
-      const vx = (tdx / d) * spd;
-      const vy = (tdy / d) * spd;
-      const color = LASER_COLORS[Math.floor(Math.random() * LASER_COLORS.length)];
-      const rot   = Math.atan2(vy, vx) * (180 / Math.PI);
-      const el    = document.createElement("div");
-      el.style.cssText = [
-        "position:absolute",
-        `left:${sx}px`, `top:${sy}px`,
-        "width:22px", "height:2px",
-        `background:${color}`,
-        `box-shadow:0 0 6px ${color}`,
-        "pointer-events:none", "z-index:3",
-        `transform:rotate(${rot}deg)`,
-        "transform-origin:left center",
-      ].join(";");
-      hero.appendChild(el);
-      lasers.push({ x: sx, y: sy, vx, vy, el, ttl: 90 });
-    };
-
-    // ── Particle spawn ────────────────────────────────────
-    const spawnParticle = (cx: number, cy: number) => {
-      if (particleCountRef.current >= 25) return;
-      const colors = ["#39ff14", "#ff2d95", "#ffe600"];
-      const color  = colors[Math.floor(Math.random() * colors.length)];
-      const size   = Math.random() * 3 + 2;
-      const ox     = (Math.random() - 0.5) * 16;
-      const oy     = (Math.random() - 0.5) * 16;
-
-      const el = document.createElement("div");
-      el.style.cssText = [
-        "position:fixed",
-        `left:${cx + ox - size / 2}px`,
-        `top:${cy + oy - size / 2}px`,
-        `width:${size}px`,
-        `height:${size}px`,
-        `background:${color}`,
-        "border-radius:1px",
-        "pointer-events:none",
-        "z-index:9999",
-        "animation:particleFade 0.5s ease-out forwards",
-      ].join(";");
-
-      particleCountRef.current++;
-      document.body.appendChild(el);
-      liveParticlesRef.current.push(el as HTMLDivElement);
-      el.addEventListener("animationend", () => {
-        el.remove();
-        liveParticlesRef.current = liveParticlesRef.current.filter((p) => p !== el);
-        particleCountRef.current--;
-      });
-    };
-
-    // ── RAF physics loop ──────────────────────────────────
-    let heroVisible = true;
-
-    const REPEL_RADIUS = 130;
-
-    const tick = (timestamp: number) => {
-      if (!heroVisible) {
-        rafRef.current = 0;
-        return;
-      }
-      const t = timestamp / 1000;
-      const { x: mx, y: my } = mouseRef.current;
-      const heroRect = hero.getBoundingClientRect();
-
-      physicsRef.current.forEach((p, i) => {
-        const el   = emojiRefs.current[i];
-        const item = floatingEmojis[i];
-        if (!el || !item) return;
-
-        // Sinusoidal float
-        const phase    = (2 * Math.PI / item.duration) * t + item.delay;
-        const floatY   = Math.sin(phase) * 8;
-        const floatRot = Math.sin(phase) * 3;
-
-        // Live home position in viewport space
-        const homeX = heroRect.left + p.relX * heroRect.width;
-        const homeY = heroRect.top  + p.relY * heroRect.height;
-
-        // Current screen center of emoji
-        const curX = homeX + p.offsetX;
-        const curY = homeY + p.offsetY;
-        const dx   = mx - curX;
-        const dy   = my - curY;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-
-        // Repel force
-        if (dist < REPEL_RADIUS && dist > 1) {
-          const force = ((REPEL_RADIUS - dist) / REPEL_RADIUS) * 10;
-          p.vx -= (dx / dist) * force;
-          p.vy -= (dy / dist) * force;
-        }
-
-        // Spring back to home (offset → 0)
-        p.vx += -p.offsetX * 0.08;
-        p.vy += -p.offsetY * 0.08;
-
-        // Damping
-        p.vx *= 0.85;
-        p.vy *= 0.85;
-
-        p.offsetX += p.vx;
-        p.offsetY += p.vy;
-
-        el.style.transform = `translate(${p.offsetX}px, ${p.offsetY + floatY}px) rotate(${floatRot}deg)`;
-      });
-
-      // ── Meteors ──────────────────────────────────────────
-      const W = heroRect.width;
-      const H = heroRect.height;
-
-      meteors.forEach((m) => {
-        m.x += m.vx;
-        m.y += m.vy;
-        if (m.x < -80 || m.x > W + 80 || m.y < -80 || m.y > H + 80) {
-          Object.assign(m, mkMeteorState(W, H, m.el));
-        }
-        const ang = Math.atan2(m.vy, m.vx) * (180 / Math.PI);
-        m.el.style.transform = `translate(${m.x}px, ${m.y}px) rotate(${ang + 225}deg)`;
-      });
-
-      // ── Ships & Lasers ────────────────────────────────────
-      ships.forEach((s) => {
-        s.angle += s.speed / 60;
-
-        const sx = s.cx * W + Math.cos(s.angle) * s.rx;
-        const sy = s.cy * H + Math.sin(s.angle) * s.ry;
-
-        // Tangent direction (derivative of orbit)
-        const tdx = -Math.sin(s.angle) * s.rx * s.speed;
-        const tdy =  Math.cos(s.angle) * s.ry * s.speed;
-        const rot  = Math.atan2(tdy, tdx) * (180 / Math.PI) + 90;
-
-        s.el.style.transform = `translate(${sx}px, ${sy}px) rotate(${rot}deg)`;
-
-        // Fire laser
-        s.fireIn--;
-        if (s.fireIn <= 0) {
-          s.fireIn = 100 + Math.floor(Math.random() * 120);
-          spawnLaser(sx, sy, tdx, tdy);
-        }
-      });
-
-      // Advance + cull lasers (reverse iterate to splice safely)
-      for (let i = lasers.length - 1; i >= 0; i--) {
-        const l = lasers[i];
-        l.x += l.vx;
-        l.y += l.vy;
-        l.ttl--;
-        if (l.ttl <= 0 || l.x < -30 || l.x > W + 30 || l.y < -30 || l.y > H + 30) {
-          l.el.remove();
-          lasers.splice(i, 1);
-        } else {
-          l.el.style.left = `${l.x}px`;
-          l.el.style.top  = `${l.y}px`;
-        }
-      }
-
-      rafRef.current = requestAnimationFrame(tick);
-    };
-
-    rafRef.current = requestAnimationFrame(tick);
-
-    const observer = new IntersectionObserver(([entry]) => {
-      heroVisible = entry.isIntersecting;
-      if (heroVisible && rafRef.current === 0) {
-        rafRef.current = requestAnimationFrame(tick);
-      }
-    }, { threshold: 0 });
-    observer.observe(hero);
-
-    // ── Mouse events ──────────────────────────────────────
-    const handleMouseMove = (e: MouseEvent) => {
-      mouseRef.current = { x: e.clientX, y: e.clientY };
-
-      if (cursorRef.current) {
-        cursorRef.current.style.transform = `translate(${e.clientX - 8}px, ${e.clientY - 8}px)`;
-      }
-
-      const now = Date.now();
-      if (now - lastParticleRef.current > 40) {
-        lastParticleRef.current = now;
-        spawnParticle(e.clientX, e.clientY);
-      }
-    };
-
-    const handleMouseEnter = () => {
-      if (cursorRef.current) cursorRef.current.style.opacity = "1";
-    };
-
-    const handleMouseLeave = () => {
-      if (cursorRef.current) cursorRef.current.style.opacity = "0";
-      mouseRef.current = { x: -9999, y: -9999 };
-    };
-
-    hero.addEventListener("mousemove", handleMouseMove);
-    hero.addEventListener("mouseenter", handleMouseEnter);
-    hero.addEventListener("mouseleave", handleMouseLeave);
-
-    return () => {
-      observer.disconnect();
-      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
-      window.removeEventListener("resize", initPhysics);
-      hero.removeEventListener("mousemove", handleMouseMove);
-      hero.removeEventListener("mouseenter", handleMouseEnter);
-      hero.removeEventListener("mouseleave", handleMouseLeave);
-      liveParticlesRef.current.forEach((el) => el.remove());
-      liveParticlesRef.current = [];
-      meteors.forEach((m) => m.el.remove());
-      ships.forEach((s) => s.el.remove());
-      lasers.forEach((l) => l.el.remove());
-    };
-  }, []);
-
   const filtered =
     activeTab === "ALL" ? allGames : allGames.filter((g) => g.category === activeTab);
 
   return (
     <>
-      {/* Custom pixel cursor — visible only inside hero */}
-      <div
-        ref={cursorRef}
-        className="fixed pointer-events-none z-[9998] opacity-0"
-        style={{ top: 0, left: 0, willChange: "transform" }}
-      >
-        <div className="relative w-4 h-4">
-          <div className="absolute top-[7px] left-0 w-full h-[2px] bg-neon-green shadow-[0_0_4px_#39ff14]" />
-          <div className="absolute left-[7px] top-0 h-full w-[2px] bg-neon-green shadow-[0_0_4px_#39ff14]" />
-          <div className="absolute top-[5px] left-[5px] w-[6px] h-[6px] bg-neon-green shadow-[0_0_6px_#39ff14]" />
-        </div>
-      </div>
-
       <Navbar />
       <main className="font-inter">
 
         {/* ── HERO ──────────────────────────────────────── */}
-        <section
-          ref={heroRef}
-          className="relative min-h-screen flex flex-col items-center justify-center text-center px-4 overflow-hidden"
-          style={{ cursor: "none" }}
-        >
+        <section className="relative min-h-screen flex flex-col items-center justify-center text-center px-4 overflow-hidden">
           {/* Dot grid */}
           <div className="absolute inset-0 hero-dot-grid opacity-60" />
           {/* Gradient overlays */}
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(88,28,135,0.25)_0%,transparent_60%)]" />
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom-right,rgba(0,212,255,0.08)_0%,transparent_50%)]" />
 
-          {/* Planets — background, CSS-driven */}
-          <div className="hidden md:block absolute inset-0 pointer-events-none select-none">
-            <div
-              className="absolute text-[4rem] opacity-[0.10]"
-              style={{ top: "6%", right: "12%", animation: "planetDrift 55s ease-in-out infinite alternate" }}
-            >🪐</div>
-            <div
-              className="absolute text-[3rem] opacity-[0.10]"
-              style={{ bottom: "8%", left: "5%", animation: "planetDrift 70s ease-in-out 8s infinite alternate-reverse" }}
-            >🌍</div>
-          </div>
-
-          {/* Floating emojis — desktop only, physics-driven */}
+          {/* Floating emojis — desktop only */}
           <div className="hidden md:block absolute inset-0 pointer-events-none select-none">
             {floatingEmojis.map((item, i) => (
               <div
                 key={i}
-                ref={(el) => { emojiRefs.current[i] = el; }}
                 className="absolute text-4xl opacity-30"
-                style={{ top: item.top, left: item.left }}
+                style={{
+                  top: item.top,
+                  left: item.left,
+                  animation: `float ${item.duration}s ease-in-out ${item.delay}s infinite alternate`,
+                }}
               >
                 {item.emoji}
               </div>
@@ -558,32 +311,16 @@ export default function HomePage() {
 
           {/* Content */}
           <div className="relative z-10 flex flex-col items-center gap-6 fade-up">
-            <div className="relative flex items-center gap-3 px-6 py-3">
-              {/* Corner targeting brackets */}
-              <div className="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 border-neon-green"
-                   style={{ animation: "bracketLockIn-tl 0.7s cubic-bezier(0.22,1,0.36,1) 0.3s both, bracketPulse 2.5s ease-in-out 1s infinite" }} />
-              <div className="absolute top-0 right-0 w-6 h-6 border-t-2 border-r-2 border-neon-green"
-                   style={{ animation: "bracketLockIn-tr 0.7s cubic-bezier(0.22,1,0.36,1) 0.45s both, bracketPulse 2.5s ease-in-out 1.1s infinite" }} />
-              <div className="absolute bottom-0 left-0 w-6 h-6 border-b-2 border-l-2 border-neon-green"
-                   style={{ animation: "bracketLockIn-bl 0.7s cubic-bezier(0.22,1,0.36,1) 0.6s both, bracketPulse 2.5s ease-in-out 1.2s infinite" }} />
-              <div className="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 border-neon-green"
-                   style={{ animation: "bracketLockIn-br 0.7s cubic-bezier(0.22,1,0.36,1) 0.75s both, bracketPulse 2.5s ease-in-out 1.3s infinite" }} />
-
-              {/* Scanline sweep */}
-              <div className="absolute left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-neon-green/50 to-transparent pointer-events-none"
-                   style={{ animation: "scanlineSwipe 5s linear 1.5s infinite" }} />
-
+            {/* Logo */}
+            <div className="flex items-center gap-3">
               <span className="font-pixel text-neon-green text-xl">&lt;</span>
-              <h1
-                ref={heroTitleRef}
-                className="heolab-glitch text-6xl md:text-8xl font-bold tracking-tight text-white"
-                data-text="HeoLab"
-              >
+              <h1 className="text-6xl md:text-8xl font-bold tracking-tight text-white">
                 HeoLab
               </h1>
               <span className="font-pixel text-neon-green text-xl">/&gt;</span>
             </div>
 
+            {/* Tagline */}
             <p className="text-2xl md:text-3xl font-semibold text-gray-300 tracking-wide">
               Play. Explore. Have Fun.
             </p>
@@ -591,6 +328,7 @@ export default function HomePage() {
               Free browser games, crafted with care. No download. No account.
             </p>
 
+            {/* CTA */}
             <Link
               href="#games"
               className="mt-2 px-8 py-3 border border-neon-green text-neon-green font-pixel text-[0.6rem]
@@ -599,6 +337,7 @@ export default function HomePage() {
               PLAY NOW
             </Link>
 
+            {/* Stats bar */}
             <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-2">
               {[
                 ["9", "GAMES"],
@@ -612,6 +351,7 @@ export default function HomePage() {
               ))}
             </div>
 
+            {/* Scroll indicator — pulse ring */}
             <div className="mt-6 relative flex items-center justify-center w-8 h-8">
               <div className="absolute inset-0 rounded-full border border-neon-green/40"
                 style={{ animation: "pulseRing 2s ease-out infinite" }} />
@@ -626,6 +366,7 @@ export default function HomePage() {
             GAMES
           </h2>
 
+          {/* Filter tabs */}
           <div className="flex justify-center gap-2 mb-8">
             {TABS.map((tab) => (
               <button
@@ -642,6 +383,7 @@ export default function HomePage() {
             ))}
           </div>
 
+          {/* Game grid */}
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {filtered.map((game) => (
               <Link
@@ -658,24 +400,29 @@ export default function HomePage() {
                   (e.currentTarget as HTMLElement).style.boxShadow = "";
                 }}
               >
+                {/* Tag */}
                 <span
                   className="absolute top-2 right-2 font-pixel text-[0.4rem] px-1.5 py-0.5 border"
                   style={{ color: game.borderColor, borderColor: `${game.borderColor}55` }}
                 >
                   {game.tag}
                 </span>
+                {/* Emoji */}
                 <div className="text-3xl mb-3 transition-transform duration-300 group-hover:scale-110 inline-block">
                   {game.emoji}
                 </div>
+                {/* Title */}
                 <h3
                   className="font-pixel text-[0.5rem] mb-2 tracking-wider leading-relaxed"
                   style={{ color: game.borderColor }}
                 >
                   {game.title}
                 </h3>
+                {/* Subtitle */}
                 <p className="text-[0.6rem] text-gray-400 leading-relaxed hidden sm:block">
                   {game.subtitle}
                 </p>
+                {/* Play hint */}
                 <p
                   className="mt-3 text-[0.4rem] font-pixel opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                   style={{ color: game.borderColor }}
@@ -686,6 +433,7 @@ export default function HomePage() {
             ))}
           </div>
 
+          {/* View all link */}
           <div className="text-center mt-8">
             <Link
               href="/games"
@@ -753,12 +501,14 @@ export default function HomePage() {
         {/* ── FOOTER ────────────────────────────────────── */}
         <footer className="border-t border-gray-900 py-12 px-4">
           <div className="max-w-4xl mx-auto flex flex-col items-center gap-6">
+            {/* Logo */}
             <div className="flex items-center gap-2">
               <span className="font-pixel text-neon-green text-xs">&lt;</span>
               <span className="font-bold text-white text-lg">HeoLab</span>
               <span className="font-pixel text-neon-green text-xs">/&gt;</span>
             </div>
 
+            {/* Nav links */}
             <div className="flex gap-6 font-pixel text-[0.45rem] text-gray-600">
               <Link href="/games" className="hover:text-neon-green transition-colors tracking-widest">
                 PLAY GAMES
@@ -768,6 +518,7 @@ export default function HomePage() {
               </Link>
             </div>
 
+            {/* Social icons */}
             <div className="flex gap-5">
               {socialLinks.map((s) => (
                 <a
@@ -787,6 +538,7 @@ export default function HomePage() {
               ))}
             </div>
 
+            {/* Copyright */}
             <p className="font-pixel text-[0.4rem] text-gray-700 tracking-widest text-center">
               © 2025 HEOLAB · ALL RIGHTS RESERVED · HEOLAB.DEV
             </p>
@@ -797,3 +549,43 @@ export default function HomePage() {
     </>
   );
 }
+```
+
+**Step 2: Verify in browser**
+
+- `http://localhost:3000` — check all sections render
+- Hero: floating emojis visible on desktop, logo centered
+- Stats bar below CTA visible
+- Games section: all 9 games shown, filter tabs work
+- Stats section: 4 cards
+- Roadmap: Pac-Man, Pong, Brick Breaker (NOT Snake/Tetris/Flappy)
+- Footer: 4 social icons grayed out, nav links present
+- Mobile (resize to 390px): emojis hidden, grid 2-col, navbar shows only `▶ PLAY`
+
+**Step 3: Commit**
+
+```bash
+git add src/app/page.tsx src/components/Navbar.tsx
+git commit -m "feat: landing page redesign — navbar, animated hero, all 9 games, stats, social footer"
+```
+
+---
+
+### Task 4: Verify build passes
+
+**Step 1: Run build**
+
+```bash
+cd E:\Personal\GameStation && npm run build
+```
+
+Expected: `✓ Compiled successfully` with no TypeScript errors.
+
+If errors: fix them (usually missing types or import issues).
+
+**Step 2: Final commit if any fixes needed**
+
+```bash
+git add -A
+git commit -m "fix: resolve build errors after landing redesign"
+```

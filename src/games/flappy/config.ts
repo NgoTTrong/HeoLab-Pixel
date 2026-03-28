@@ -90,10 +90,12 @@ export function getMedal(score: number): Medal | null {
 }
 
 // Physics constants
-export const GRAVITY = 0.5;
-export const FLAP_IMPULSE = -9;
+export const GRAVITY = 0.2;
+export const FLAP_IMPULSE = -6.0;
 export const PIPE_WIDTH = 52;
 export const PIPE_GAP = 155;
-export const PIPE_SPEED = 3;
-export const PIPE_INTERVAL = 90; // frames between pipes
+export const PIPE_SPEED_BASE = 1.8;   // starting pipe speed
+export const PIPE_SPEED_MAX = 4.0;    // cap speed
+export const PIPE_SPEED = 1.8;        // legacy alias (used for clouds/coins ratio)
+export const PIPE_INTERVAL = 100; // frames between pipes
 export const GROUND_HEIGHT = 60;

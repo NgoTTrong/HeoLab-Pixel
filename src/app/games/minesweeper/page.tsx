@@ -7,6 +7,8 @@ import Board from "@/games/minesweeper/Board";
 import { createBoard, reveal, toggleFlag, chord } from "@/games/minesweeper/logic";
 import { Difficulty, MinesweeperState, DIFFICULTIES } from "@/games/minesweeper/types";
 import { getBestTime, setBestTime } from "@/lib/scores";
+import { createMinesweeperAudio } from "@/games/minesweeper/audio";
+import type { MinesweeperAudio } from "@/games/minesweeper/audio";
 
 export default function MinesweeperPage() {
   const [difficulty, setDifficulty] = useState<Difficulty>("easy");
@@ -17,12 +19,53 @@ export default function MinesweeperPage() {
   const [timerActive, setTimerActive] = useState(false);
   const [bestTime, setBest] = useState<number | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const audioRef = useRef<MinesweeperAudio | null>(null);
+  const pendingAudioRef = useRef<string | null>(null);
+  const [muted, setMuted] = useState(() =>
+    typeof window !== "undefined" && localStorage.getItem("minesweeper-sound-muted") === "1"
+  );
   const [flagMode, setFlagMode] = useState(false);
   const [isTouchDevice, setIsTouchDevice] = useState(false);
 
   useEffect(() => {
     setIsTouchDevice("ontouchstart" in window || navigator.maxTouchPoints > 0);
   }, []);
+
+  // Lazy-init audio on first user gesture (required by browser autoplay policy)
+  useEffect(() => {
+    const init = () => {
+      if (!audioRef.current) {
+        audioRef.current = createMinesweeperAudio();
+        audioRef.current.setMuted(muted);
+      }
+    };
+    window.addEventListener("pointerdown", init, { once: true });
+    window.addEventListener("keydown", init, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", init);
+      window.removeEventListener("keydown", init);
+    };
+  }, [muted]);
+
+  // Sync muted state to audio instance and localStorage
+  useEffect(() => {
+    audioRef.current?.setMuted(muted);
+    localStorage.setItem("minesweeper-sound-muted", muted ? "1" : "0");
+  }, [muted]);
+
+  // Consume pending audio after each state update
+  useEffect(() => {
+    if (!pendingAudioRef.current) return;
+    const key = pendingAudioRef.current;
+    pendingAudioRef.current = null;
+    const a = audioRef.current;
+    if (!a) return;
+    if (key === "mine") a.playMine();
+    else if (key === "win") a.playWin();
+    else if (key === "cascade") a.playCascade();
+    else if (key === "chord") a.playChord();
+    else a.playReveal();
+  }, [state]);
 
   const gameKey = `minesweeper-${difficulty}`;
 
@@ -60,17 +103,25 @@ export default function MinesweeperPage() {
       setState((prev) => {
         if (prev.gameState !== "playing") return prev;
 
-        // Start timer on first click
         if (prev.firstClick) {
           setTimerActive(true);
         }
 
         const next = reveal(prev, row, col);
 
+        // Count revealed cells to detect cascade
+        const prevRevealed = prev.board.flat().filter((c) => c.isRevealed).length;
+        const nextRevealed = next.board.flat().filter((c) => c.isRevealed).length;
+        const delta = nextRevealed - prevRevealed;
+
+        // Schedule audio (consumed by useEffect after re-render)
+        if (next.gameState === "lost") pendingAudioRef.current = "mine";
+        else if (next.gameState === "won") pendingAudioRef.current = "win";
+        else if (delta >= 3) pendingAudioRef.current = "cascade";
+        else pendingAudioRef.current = "reveal";
+
         if (next.gameState === "won") {
           setTimerActive(false);
-          // We need timer+1 because the state update is async.
-          // Use a timeout to read the latest timer value.
           setTimeout(() => {
             setTimer((t) => {
               setBestTime(gameKey, t);
@@ -89,13 +140,23 @@ export default function MinesweeperPage() {
   );
 
   const handleFlag = useCallback((row: number, col: number) => {
-    setState((prev) => toggleFlag(prev, row, col));
+    setState((prev) => {
+      const next = toggleFlag(prev, row, col);
+      // Safe to call directly — audioRef is a stable ref, not React state
+      if (next.flagCount > prev.flagCount) audioRef.current?.playFlag();
+      else audioRef.current?.playUnflag();
+      return next;
+    });
   }, []);
 
   const handleChord = useCallback(
     (row: number, col: number) => {
       setState((prev) => {
         const next = chord(prev, row, col);
+
+        if (next.gameState === "lost") pendingAudioRef.current = "mine";
+        else if (next.gameState === "won") pendingAudioRef.current = "win";
+        else pendingAudioRef.current = "chord";
 
         if (next.gameState === "won") {
           setTimerActive(false);
@@ -147,6 +208,13 @@ export default function MinesweeperPage() {
           <span>
             &#x1f479; MONSTERS: {monsterCount}
           </span>
+          <button
+            onClick={() => setMuted((m) => !m)}
+            className="text-[0.5rem] text-gray-500 hover:text-gray-300 transition-colors"
+            title={muted ? "Unmute" : "Mute"}
+          >
+            {muted ? "🔇" : "🔊"}
+          </button>
           {isTouchDevice && state.gameState === "playing" && (
             <button
               type="button"

@@ -325,3 +325,24 @@ body {
   0%   { transform: scale(0.8); opacity: 1; }
   100% { transform: scale(1.6); opacity: 0; }
 }
+
+@keyframes particleFade {
+  0%   { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-8px) scale(0.3); }
+}
+
+/* 2048 tile animations */
+@keyframes tileSpawn {
+  0%   { transform: scale(0.4); opacity: 0; }
+  70%  { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1);   opacity: 1; }
+}
+
+@keyframes tileMerge {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+
+.tile-spawn { animation: tileSpawn 0.18s ease-out both; }
+.tile-merge { animation: tileMerge 0.20s ease-out both; }

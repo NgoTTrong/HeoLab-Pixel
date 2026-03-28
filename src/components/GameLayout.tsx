@@ -38,7 +38,7 @@ export default function GameLayout({
       {/* Top bar */}
       <div className="flex items-center justify-between flex-wrap gap-1 sm:gap-2">
         <Link
-          href="/"
+          href="/games"
           className={`text-[0.5rem] sm:text-[0.6rem] neon-text-${color} hover:opacity-80 transition-opacity`}
         >
           &larr; BACK

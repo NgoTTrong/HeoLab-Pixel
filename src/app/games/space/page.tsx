@@ -39,8 +39,9 @@ interface Alien {
 
 interface Bullet { x: number; y: number; }
 interface AlienBullet { x: number; y: number; }
+interface HomingBullet { x: number; y: number; angle: number; }
 interface DroppedPowerUp { x: number; y: number; type: PowerUpType; }
-interface Boss { x: number; y: number; hp: number; maxHp: number; vx: number; phase: number; }
+interface Boss { x: number; y: number; hp: number; maxHp: number; vx: number; phase: number; shieldActive?: boolean; }
 
 // Per-wave alien roster — different emoji sets as waves progress
 const WAVE_ALIENS = [
@@ -90,6 +91,11 @@ export default function SpacePage() {
     tripleEndsAt: 0,
     activeRapid: false,
     rapidEndsAt: 0,
+    // Homing missiles
+    homingBullets: [] as HomingBullet[],
+    // Slow time
+    slowActive: false,
+    slowEndsAt: 0,
     // Shoot cooldown (hold-space fix)
     shootCooldown: 0,
     // Wave pattern
@@ -198,6 +204,9 @@ export default function SpacePage() {
     g.activeShield = false;
     g.activeTriple = false;
     g.activeRapid = false;
+    g.homingBullets = [];
+    g.slowActive = false;
+    g.slowEndsAt = 0;
     g.muzzleFlash = 0;
     g.combo = 0;
     g.comboMultiplier = 1;
@@ -256,19 +265,59 @@ export default function SpacePage() {
       if (g.activeShield && now > g.shieldEndsAt) { g.activeShield = false; setActivePowerUpLabel(g.activeRapid ? "⚡ RAPID FIRE" : null); }
       if (g.activeTriple && now > g.tripleEndsAt) { g.activeTriple = false; setActivePowerUpLabel(g.activeShield ? "🛡️ SHIELD" : g.activeRapid ? "⚡ RAPID FIRE" : null); }
       if (g.activeRapid  && now > g.rapidEndsAt)  { g.activeRapid  = false; setActivePowerUpLabel(g.activeShield ? "🛡️ SHIELD" : g.activeTriple ? "🔱 TRIPLE SHOT" : null); }
+      if (g.slowActive   && now > g.slowEndsAt)   {
+        g.slowActive = false;
+        setActivePowerUpLabel(
+          g.activeShield ? "🛡️ SHIELD" : g.activeTriple ? "🔱 TRIPLE SHOT" : g.activeRapid ? "⚡ RAPID FIRE" : null
+        );
+      }
 
       // ── MOVE BULLETS ───────────────────────────────────
       g.bullets = g.bullets.filter((b) => b.y > -10);
       g.bullets.forEach((b) => { b.y -= BULLET_SPEED; });
       g.alienBullets = g.alienBullets.filter((b) => b.y < H + 10);
-      g.alienBullets.forEach((b) => { b.y += ALIEN_BULLET_SPEED; });
+      const alienBulletSpeed = g.slowActive ? ALIEN_BULLET_SPEED * 0.4 : ALIEN_BULLET_SPEED;
+      g.alienBullets.forEach((b) => { b.y += alienBulletSpeed; });
       g.droppedPowerUps = g.droppedPowerUps.filter((p) => p.y < H + 20);
       g.droppedPowerUps.forEach((p) => { p.y += 1.5; });
+
+      // Homing missiles
+      g.homingBullets = g.homingBullets.filter((hb) => hb.y > -20 && hb.y < H + 20);
+      for (const hb of g.homingBullets) {
+        const targets = g.aliens.filter((a) => a.alive);
+        if (g.boss) {
+          const bossCenter = { x: g.boss.x + 40, y: g.boss.y + 25 };
+          const dx = bossCenter.x - hb.x;
+          const dy = bossCenter.y - hb.y;
+          const targetAngle = Math.atan2(dy, dx);
+          let diff = targetAngle - hb.angle;
+          while (diff > Math.PI) diff -= Math.PI * 2;
+          while (diff < -Math.PI) diff += Math.PI * 2;
+          hb.angle += Math.sign(diff) * Math.min(Math.abs(diff), 0.07);
+        } else if (targets.length > 0) {
+          let nearest = targets[0];
+          let nearDist = Infinity;
+          for (const a of targets) {
+            const d = Math.hypot(a.x - hb.x, a.y - hb.y);
+            if (d < nearDist) { nearDist = d; nearest = a; }
+          }
+          const dx = nearest.x + ALIEN_SIZE / 2 - hb.x;
+          const dy = nearest.y + ALIEN_SIZE / 2 - hb.y;
+          const targetAngle = Math.atan2(dy, dx);
+          let diff = targetAngle - hb.angle;
+          while (diff > Math.PI) diff -= Math.PI * 2;
+          while (diff < -Math.PI) diff += Math.PI * 2;
+          hb.angle += Math.sign(diff) * Math.min(Math.abs(diff), 0.07);
+        }
+        hb.x += Math.cos(hb.angle) * 5;
+        hb.y += Math.sin(hb.angle) * 5;
+      }
 
       // ── ALIEN MOVEMENT ─────────────────────────────────
       g.alienMoveTimer++;
       const liveAliens = g.aliens.filter((a) => a.alive);
-      if (g.alienMoveTimer >= g.alienMoveInterval && liveAliens.length > 0) {
+      const effectiveInterval = g.slowActive ? g.alienMoveInterval * 2.5 : g.alienMoveInterval;
+      if (g.alienMoveTimer >= effectiveInterval && liveAliens.length > 0) {
         g.alienMoveTimer = 0;
         if (g.pattern === "march") {
           const rightmost = Math.max(...liveAliens.map((a) => a.x));
@@ -419,6 +468,50 @@ export default function SpacePage() {
         }
       }
 
+      // Homing missile collision
+      for (const hb of g.homingBullets) {
+        for (const alien of liveAliens) {
+          if (
+            hb.x > alien.x && hb.x < alien.x + ALIEN_SIZE &&
+            hb.y > alien.y && hb.y < alien.y + ALIEN_SIZE
+          ) {
+            if (alien.hasShield) { alien.hasShield = false; hb.y = -999; continue; }
+            alien.hp--;
+            hb.y = -999;
+            if (alien.hp <= 0) {
+              alien.alive = false;
+              g.combo++;
+              g.comboMultiplier = g.combo >= 20 ? 4 : g.combo >= 10 ? 3 : g.combo >= 5 ? 2 : 1;
+              g.comboDisplayTimer = 90;
+              g.score += (25 + g.wave * 2) * g.comboMultiplier;
+              setUiScore(g.score);
+              audioRef.current?.playExplosion();
+            }
+          }
+        }
+        // Homing vs boss
+        if (g.boss && !g.boss.shieldActive) {
+          if (hb.x > g.boss.x && hb.x < g.boss.x + 80 && hb.y > g.boss.y && hb.y < g.boss.y + 50) {
+            g.boss.hp -= 1;
+            hb.y = -999;
+            g.score += 5 * g.comboMultiplier;
+            setUiScore(g.score);
+            if (g.boss.hp <= 0) {
+              g.boss = null;
+              g.score += 300 + g.wave * 20;
+              setUiScore(g.score);
+              audioRef.current?.playBossDie();
+              g.combo = 0;
+              g.comboMultiplier = 1;
+              g.comboDisplayTimer = 0;
+              g.wave++;
+              setUiWave(g.wave);
+              spawnAliens(g.wave);
+            }
+          }
+        }
+      }
+
       // ── POWER-UP PICKUP ────────────────────────────────
       for (const pu of g.droppedPowerUps) {
         if (pu.x > g.shipX && pu.x < g.shipX + SHIP_W && pu.y > SHIP_Y && pu.y < SHIP_Y + SHIP_H) {
@@ -459,6 +552,19 @@ export default function SpacePage() {
             audioRef.current?.playExtraLife();
             setActivePowerUpLabel("❤️ +1 LIFE!");
             setTimeout(() => setActivePowerUpLabel(null), 1500);
+          } else if (pu.type === "homingMissile") {
+            const cx = g.shipX + SHIP_W / 2;
+            [-0.4, -Math.PI / 2, -Math.PI + 0.4].forEach((angle) => {
+              g.homingBullets.push({ x: cx, y: SHIP_Y - 4, angle });
+            });
+            audioRef.current?.playPowerUp();
+            setActivePowerUpLabel("🎯 HOMING MISSILE!");
+            setTimeout(() => setActivePowerUpLabel(null), 1500);
+          } else if (pu.type === "slowTime") {
+            g.slowActive = true;
+            g.slowEndsAt = now + (def.duration ?? 6000);
+            setActivePowerUpLabel("🐌 SLOW TIME");
+            audioRef.current?.playPowerUp();
           }
         }
       }
@@ -520,6 +626,15 @@ export default function SpacePage() {
       // ══ DRAW ══════════════════════════════════════════
       ctx.fillStyle = "#060614";
       ctx.fillRect(0, 0, W, H);
+
+      // Slow time vignette
+      if (g.slowActive) {
+        const grad = ctx.createRadialGradient(W/2, H/2, H*0.2, W/2, H/2, H*0.8);
+        grad.addColorStop(0, "rgba(0,212,255,0)");
+        grad.addColorStop(1, "rgba(0,212,255,0.08)");
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, W, H);
+      }
 
       // Scrolling star field (3 layers of parallax)
       for (let layer = 0; layer < 3; layer++) {
@@ -617,6 +732,27 @@ export default function SpacePage() {
         ctx.shadowBlur = 8; ctx.shadowColor = "#39ff14";
         ctx.fillRect(b.x - 2, b.y, 4, 14);
         ctx.shadowBlur = 0;
+      }
+
+      // ── Draw homing missiles ────────────────────────────
+      for (const hb of g.homingBullets) {
+        ctx.save();
+        ctx.translate(hb.x, hb.y);
+        ctx.rotate(hb.angle - Math.PI / 2);
+        ctx.fillStyle = "#ffe600";
+        ctx.shadowBlur = 10; ctx.shadowColor = "#ffe600";
+        ctx.beginPath();
+        ctx.moveTo(0, -9);
+        ctx.lineTo(4, 4);
+        ctx.lineTo(-4, 4);
+        ctx.closePath();
+        ctx.fill();
+        ctx.globalAlpha = 0.4;
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(-1, 5, 2, 4);
+        ctx.globalAlpha = 1;
+        ctx.shadowBlur = 0;
+        ctx.restore();
       }
 
       // ── Draw alien bullets (animated) ─────────────────

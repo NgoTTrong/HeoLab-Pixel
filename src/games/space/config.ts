@@ -1,4 +1,4 @@
-export type PowerUpType = "tripleShot" | "shield" | "bomb" | "rapidFire" | "extraLife";
+export type PowerUpType = "tripleShot" | "shield" | "bomb" | "rapidFire" | "extraLife" | "homingMissile" | "slowTime";
 export type WavePattern = "march" | "zigzag" | "dive";
 
 export interface PowerUpDef {
@@ -15,7 +15,9 @@ export const POWER_UPS: PowerUpDef[] = [
   { type: "shield",     emoji: "🛡️", label: "SHIELD",       color: "#00d4ff", duration: 12000, dropChance: 0.12 },
   { type: "bomb",       emoji: "💣", label: "SCREEN BOMB",  color: "#ffe600", duration: null,  dropChance: 0.05 },
   { type: "rapidFire",  emoji: "⚡", label: "RAPID FIRE",   color: "#39ff14", duration: 8000,  dropChance: 0.13 },
-  { type: "extraLife",  emoji: "❤️", label: "+1 LIFE",       color: "#ff2d95", duration: null,  dropChance: 0.06 },
+  { type: "extraLife",     emoji: "❤️", label: "+1 LIFE",        color: "#ff2d95", duration: null,  dropChance: 0.06 },
+  { type: "homingMissile", emoji: "🎯", label: "HOMING MISSILE", color: "#ffe600", duration: null,  dropChance: 0.08 },
+  { type: "slowTime",      emoji: "🐌", label: "SLOW TIME",      color: "#00d4ff", duration: 6000,  dropChance: 0.07 },
 ];
 
 export const WAVE_PATTERNS: WavePattern[] = ["march", "zigzag", "dive"];

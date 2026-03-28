@@ -20,6 +20,19 @@ const CHAR_SIZE = 40;
 
 type GameStatus = "select" | "idle" | "playing" | "dead";
 
+interface CloudObj {
+  x: number;
+  y: number;
+  r: number;
+  speed: number;
+}
+
+interface StarObj {
+  x: number;
+  y: number;
+  phase: number;
+}
+
 interface ObstacleObj {
   x: number;
   emoji: string;
@@ -69,6 +82,8 @@ export default function RunnerPage() {
     scorePopY: 0,
     isSliding: false,
     slideTimer: 0,
+    clouds: [] as CloudObj[],
+    stars: [] as StarObj[],
     fromSkyTop: "#87CEEB",
     fromSkyBot: "#c8eaf9",
     fromGround: "#c2965a",
@@ -167,6 +182,24 @@ export default function RunnerPage() {
     if (!canvas) return;
     const ctx = canvas.getContext("2d")!;
     const char = CHARACTERS[selectedChar];
+
+    // Init clouds once
+    if (gameRef.current.clouds.length === 0) {
+      gameRef.current.clouds = Array.from({ length: 4 }, (_, i) => ({
+        x: (W / 4) * i + Math.random() * 80,
+        y: 20 + Math.random() * 80,
+        r: 22 + Math.random() * 22,
+        speed: 0.22 + Math.random() * 0.13,
+      }));
+    }
+    // Init stars once
+    if (gameRef.current.stars.length === 0) {
+      gameRef.current.stars = Array.from({ length: 40 }, () => ({
+        x: Math.random() * W,
+        y: Math.random() * (H - GROUND_HEIGHT) * 0.7,
+        phase: Math.random() * Math.PI * 2,
+      }));
+    }
 
     function draw() {
       const g = gameRef.current;
@@ -302,6 +335,28 @@ export default function RunnerPage() {
       skyGrad.addColorStop(1, effSkyBot);
       ctx.fillStyle = skyGrad;
       ctx.fillRect(0, 0, W, H - GROUND_HEIGHT);
+
+      // Parallax clouds
+      const fromCloudAlpha = (g.fromSkyTop === "#0d0d1a" || g.fromSkyTop === "#1a0500") ? 0.1 : 0.55;
+      const toCloudAlpha = (world.id === "storm" || world.id === "lava") ? 0.1 : 0.55;
+      const cloudAlpha = fromCloudAlpha + (toCloudAlpha - fromCloudAlpha) * g.transitionT;
+      if (cloudAlpha > 0.01) {
+        ctx.save();
+        for (const cloud of g.clouds) {
+          cloud.x -= g.speed * cloud.speed;
+          if (cloud.x + cloud.r * 2.5 < 0) cloud.x = W + cloud.r;
+          ctx.globalAlpha = cloudAlpha;
+          ctx.fillStyle = "#ffffff";
+          ctx.shadowBlur = 0;
+          ctx.beginPath();
+          ctx.arc(cloud.x, cloud.y, cloud.r, 0, Math.PI * 2);
+          ctx.arc(cloud.x + cloud.r * 0.9, cloud.y - cloud.r * 0.35, cloud.r * 0.7, 0, Math.PI * 2);
+          ctx.arc(cloud.x + cloud.r * 1.7, cloud.y, cloud.r * 0.65, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+        ctx.restore();
+      }
 
       // Draw ground
       ctx.fillStyle = effGround;

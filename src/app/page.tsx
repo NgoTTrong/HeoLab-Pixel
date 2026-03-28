@@ -41,7 +41,7 @@ const games = [
 
 export default function Home() {
   return (
-    <div className="flex flex-col items-center min-h-screen px-4 py-12 gap-10">
+    <div className="flex flex-col items-center min-h-screen px-3 sm:px-4 py-8 sm:py-12 gap-6 sm:gap-10">
       {/* Header */}
       <header className="text-center">
         <h1 className="text-2xl md:text-3xl neon-text neon-text-green glow-pulse mb-3">

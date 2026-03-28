@@ -38,8 +38,8 @@ body {
   z-index: 50;
   background: repeating-linear-gradient(
     0deg,
-    rgba(0, 0, 0, 0.15) 0px,
-    rgba(0, 0, 0, 0.15) 1px,
+    rgba(0, 0, 0, 0.05) 0px,
+    rgba(0, 0, 0, 0.05) 1px,
     transparent 1px,
     transparent 3px
   );
@@ -72,7 +72,7 @@ body {
 
 /* Pixel button base styles */
 .pixel-btn {
-  padding: 0.75rem 1.5rem;
+  padding: 0.5rem 0.75rem;
   border: 2px solid;
   font-family: var(--font-pixel), monospace;
   font-size: 0.65rem;
@@ -81,6 +81,12 @@ body {
   cursor: pointer;
   transition: all 0.2s ease;
   background: transparent;
+}
+
+@media (min-width: 640px) {
+  .pixel-btn {
+    padding: 0.75rem 1.5rem;
+  }
 }
 
 .pixel-btn:hover:not(:disabled) {
@@ -119,4 +125,132 @@ body {
 
 .glow-pulse {
   animation: glow-pulse 2s ease-in-out infinite;
+}
+
+/* Minesweeper cell reveal - ripple outward */
+@keyframes cellReveal {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+    background-color: rgba(57, 255, 20, 0.15);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+    background-color: rgba(57, 255, 20, 0.08);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    background-color: transparent;
+  }
+}
+
+/* Mine reveal - shake and flash red */
+@keyframes mineReveal {
+  0% {
+    opacity: 0;
+    transform: scale(0.3) rotate(0deg);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1.3) rotate(10deg);
+    background-color: rgba(255, 0, 0, 0.4);
+  }
+  70% {
+    transform: scale(0.9) rotate(-5deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+/* === Win / Lose Effects === */
+
+/* Overlay fade in */
+@keyframes overlayIn {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+/* Screen shake on lose */
+@keyframes screenShake {
+  0%, 100% { transform: translate(0, 0); }
+  10% { transform: translate(-6px, -4px); }
+  20% { transform: translate(6px, 2px); }
+  30% { transform: translate(-4px, 6px); }
+  40% { transform: translate(4px, -6px); }
+  50% { transform: translate(-6px, 4px); }
+  60% { transform: translate(6px, -2px); }
+  70% { transform: translate(-2px, 6px); }
+  80% { transform: translate(4px, -4px); }
+  90% { transform: translate(-4px, 2px); }
+}
+
+/* Victory text glow pulse */
+@keyframes victoryGlow {
+  0%, 100% {
+    text-shadow:
+      0 0 10px var(--neon-green),
+      0 0 20px var(--neon-green),
+      0 0 40px var(--neon-green),
+      0 0 80px var(--neon-green);
+  }
+  50% {
+    text-shadow:
+      0 0 5px var(--neon-green),
+      0 0 10px var(--neon-green),
+      0 0 20px var(--neon-green);
+  }
+}
+
+/* Defeat text flash */
+@keyframes defeatFlash {
+  0%, 100% {
+    text-shadow:
+      0 0 10px var(--neon-pink),
+      0 0 20px var(--neon-pink),
+      0 0 40px var(--neon-pink);
+    opacity: 1;
+  }
+  50% {
+    text-shadow:
+      0 0 5px var(--neon-pink);
+    opacity: 0.6;
+  }
+}
+
+/* Floating emoji */
+@keyframes floatUp {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-10px); }
+}
+
+/* Neighbor bounce when clicking a number cell */
+@keyframes cellBounce {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(0.8);
+  }
+  70% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Flag placement pop */
+@keyframes flagPop {
+  0% {
+    transform: scale(0);
+  }
+  60% {
+    transform: scale(1.4);
+  }
+  100% {
+    transform: scale(1);
+  }
 }

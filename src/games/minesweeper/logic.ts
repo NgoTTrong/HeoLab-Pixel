@@ -9,7 +9,10 @@ function deepCopyBoard(board: CellState[][]): CellState[][] {
   return board.map((row) => row.map((cell) => ({ ...cell })));
 }
 
+let revealCounter = 0;
+
 export function createBoard(difficulty: Difficulty): MinesweeperState {
+  revealCounter = 0;
   const { rows, cols, mines } = DIFFICULTIES[difficulty];
   const board: CellState[][] = Array.from({ length: rows }, () =>
     Array.from({ length: cols }, () => ({
@@ -17,6 +20,7 @@ export function createBoard(difficulty: Difficulty): MinesweeperState {
       isRevealed: false,
       isFlagged: false,
       adjacentMines: 0,
+      revealOrder: -1,
     }))
   );
   return {
@@ -76,17 +80,33 @@ function floodFill(
   col: number
 ): number {
   if (row < 0 || row >= rows || col < 0 || col >= cols) return 0;
-  const cell = board[row][col];
-  if (cell.isRevealed || cell.isFlagged || cell.isMine) return 0;
+  const startCell = board[row][col];
+  if (startCell.isRevealed || startCell.isFlagged || startCell.isMine) return 0;
 
-  cell.isRevealed = true;
+  // BFS for staggered reveal animation
+  const queue: [number, number][] = [[row, col]];
+  startCell.isRevealed = true;
+  startCell.revealOrder = revealCounter++;
   let count = 1;
 
-  if (cell.adjacentMines === 0) {
-    for (let dr = -1; dr <= 1; dr++) {
-      for (let dc = -1; dc <= 1; dc++) {
-        if (dr === 0 && dc === 0) continue;
-        count += floodFill(board, rows, cols, row + dr, col + dc);
+  while (queue.length > 0) {
+    const [cr, cc] = queue.shift()!;
+    const current = board[cr][cc];
+
+    if (current.adjacentMines === 0) {
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          if (dr === 0 && dc === 0) continue;
+          const nr = cr + dr;
+          const nc = cc + dc;
+          if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
+          const neighbor = board[nr][nc];
+          if (neighbor.isRevealed || neighbor.isFlagged || neighbor.isMine) continue;
+          neighbor.isRevealed = true;
+          neighbor.revealOrder = revealCounter++;
+          count++;
+          queue.push([nr, nc]);
+        }
       }
     }
   }
@@ -119,20 +139,87 @@ export function reveal(
   // Hit a mine
   if (cell.isMine) {
     cell.isRevealed = true;
-    // Reveal all mines
+    cell.revealOrder = revealCounter++;
+    // Reveal all mines with stagger
     for (let r = 0; r < newState.rows; r++) {
       for (let c = 0; c < newState.cols; c++) {
-        if (newBoard[r][c].isMine) {
+        if (newBoard[r][c].isMine && !newBoard[r][c].isRevealed) {
           newBoard[r][c].isRevealed = true;
+          newBoard[r][c].revealOrder = revealCounter++;
         }
       }
     }
     return { ...newState, gameState: "lost" };
   }
 
-  // Flood fill
+  // BFS flood fill with staggered reveal
   const revealed = floodFill(newBoard, newState.rows, newState.cols, row, col);
   newState.revealedCount += revealed;
+
+  if (checkWin(newState)) {
+    return { ...newState, gameState: "won" };
+  }
+
+  return newState;
+}
+
+export function chord(
+  state: MinesweeperState,
+  row: number,
+  col: number
+): MinesweeperState {
+  if (state.gameState !== "playing") return state;
+
+  const cell = state.board[row][col];
+  if (!cell.isRevealed || cell.isMine || cell.adjacentMines === 0) return state;
+
+  // Count adjacent flags
+  let flagCount = 0;
+  for (let dr = -1; dr <= 1; dr++) {
+    for (let dc = -1; dc <= 1; dc++) {
+      if (dr === 0 && dc === 0) continue;
+      const nr = row + dr;
+      const nc = col + dc;
+      if (nr >= 0 && nr < state.rows && nc >= 0 && nc < state.cols) {
+        if (state.board[nr][nc].isFlagged) flagCount++;
+      }
+    }
+  }
+
+  // Only chord if flag count matches the number
+  if (flagCount !== cell.adjacentMines) return state;
+
+  const newBoard = deepCopyBoard(state.board);
+  let newState = { ...state, board: newBoard };
+  let hitMine = false;
+
+  for (let dr = -1; dr <= 1; dr++) {
+    for (let dc = -1; dc <= 1; dc++) {
+      if (dr === 0 && dc === 0) continue;
+      const nr = row + dr;
+      const nc = col + dc;
+      if (nr < 0 || nr >= newState.rows || nc < 0 || nc >= newState.cols) continue;
+      const neighbor = newBoard[nr][nc];
+      if (neighbor.isRevealed || neighbor.isFlagged) continue;
+
+      if (neighbor.isMine) {
+        hitMine = true;
+        // Reveal all mines
+        for (let r = 0; r < newState.rows; r++) {
+          for (let c = 0; c < newState.cols; c++) {
+            if (newBoard[r][c].isMine) newBoard[r][c].isRevealed = true;
+          }
+        }
+      } else {
+        const revealed = floodFill(newBoard, newState.rows, newState.cols, nr, nc);
+        newState.revealedCount += revealed;
+      }
+    }
+  }
+
+  if (hitMine) {
+    return { ...newState, gameState: "lost" };
+  }
 
   if (checkWin(newState)) {
     return { ...newState, gameState: "won" };

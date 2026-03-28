@@ -36,18 +36,18 @@ export default function GameLayout({
   return (
     <div className="flex flex-col min-h-screen p-4 gap-4">
       {/* Top bar */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
+      <div className="flex items-center justify-between flex-wrap gap-1 sm:gap-2">
         <Link
           href="/"
-          className={`text-[0.6rem] neon-text-${color} hover:opacity-80 transition-opacity`}
+          className={`text-[0.5rem] sm:text-[0.6rem] neon-text-${color} hover:opacity-80 transition-opacity`}
         >
           &larr; BACK
         </Link>
-        <h1 className={`text-xs md:text-sm neon-text neon-text-${color} text-center`}>
+        <h1 className={`text-[0.6rem] sm:text-xs md:text-sm neon-text neon-text-${color} text-center`}>
           {title}
         </h1>
         {timer !== undefined ? (
-          <span className="text-[0.6rem] text-gray-400">{formatTime(timer)}</span>
+          <span className="text-[0.5rem] sm:text-[0.6rem] text-gray-400">{formatTime(timer)}</span>
         ) : (
           <span />
         )}
@@ -65,7 +65,7 @@ export default function GameLayout({
       <div className="flex-1 flex items-center justify-center">{children}</div>
 
       {/* Bottom bar */}
-      <div className="flex items-center justify-center gap-4 flex-wrap">
+      <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4 flex-wrap">
         {onNewGame && (
           <PixelButton color={color} onClick={onNewGame}>
             NEW GAME

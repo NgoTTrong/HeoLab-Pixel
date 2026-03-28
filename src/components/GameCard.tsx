@@ -43,7 +43,7 @@ export default function GameCard({
   return (
     <Link href={href} className="block group">
       <div
-        className={`bg-dark-card border ${borderColorMap[color]} rounded-sm p-6
+        className={`bg-dark-card border ${borderColorMap[color]} rounded-sm p-4 sm:p-6
           transition-all duration-200 ${hoverShadowMap[color]}
           group-hover:scale-[1.02]`}
       >
@@ -53,7 +53,7 @@ export default function GameCard({
         >
           {title}
         </h2>
-        <p className="text-[0.55rem] text-gray-400 leading-relaxed mb-4">
+        <p className="text-[0.5rem] sm:text-[0.55rem] text-gray-400 leading-relaxed mb-3 sm:mb-4">
           {subtitle}
         </p>
         <span

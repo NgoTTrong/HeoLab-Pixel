@@ -3,6 +3,7 @@ export interface CellState {
   isRevealed: boolean;
   isFlagged: boolean;
   adjacentMines: number;
+  revealOrder: number; // for staggered reveal animation
 }
 
 export type Difficulty = "easy" | "medium" | "hard";

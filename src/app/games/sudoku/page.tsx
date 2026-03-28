@@ -152,7 +152,7 @@ export default function SudokuPage() {
     >
       <div className="flex flex-col items-center gap-3">
         {/* Status bar */}
-        <div className="flex items-center gap-4 text-[0.55rem] text-gray-400 flex-wrap justify-center">
+        <div className="flex items-center gap-2 sm:gap-4 text-[0.45rem] sm:text-[0.55rem] text-gray-400 flex-wrap justify-center">
           <PixelButton
             color="blue"
             onClick={toggleRuneMode}
@@ -193,15 +193,16 @@ export default function SudokuPage() {
         </div>
 
         {/* Number pad */}
-        <div className="flex flex-wrap justify-center gap-1 max-w-xs">
+        <div className="flex flex-wrap justify-center gap-1.5 sm:gap-1 max-w-xs">
           {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
             <button
               key={n}
               type="button"
               onClick={() => handleNumber(n)}
               disabled={state.completed}
-              className="w-9 h-9 sm:w-10 sm:h-10 border border-neon-blue/30 text-neon-blue
-                hover:bg-neon-blue/10 transition-colors disabled:opacity-30 text-xs sm:text-sm"
+              className="w-11 h-11 sm:w-10 sm:h-10 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0
+                border border-neon-blue/30 text-neon-blue
+                hover:bg-neon-blue/10 transition-colors disabled:opacity-30 text-sm sm:text-sm"
             >
               {state.runeMode ? RUNES[n] : n}
             </button>
@@ -210,7 +211,8 @@ export default function SudokuPage() {
             type="button"
             onClick={handleDelete}
             disabled={state.completed}
-            className="w-9 h-9 sm:w-10 sm:h-10 border border-neon-blue/30 text-gray-400
+            className="w-11 h-11 sm:w-10 sm:h-10 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0
+              border border-neon-blue/30 text-gray-400
               hover:bg-neon-blue/10 transition-colors disabled:opacity-30 text-[0.5rem]"
           >
             DEL

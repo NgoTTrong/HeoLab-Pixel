@@ -77,7 +77,7 @@ const games = [
     emoji: "🦕",
     tag: "CASUAL",
     category: "CASUAL" as Category,
-    available: false,
+    available: true,
   },
   // ARCADE (new)
   {

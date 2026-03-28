@@ -13,5 +13,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${base}/games/snake`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: `${base}/games/tetris`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: `${base}/games/flappy`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
+    { url: `${base}/games/runner`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
   ];
 }

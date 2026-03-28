@@ -13,9 +13,9 @@ import type { RunnerAudio } from "@/games/runner/audio";
 import MuteButton from "@/components/MuteButton";
 
 const GAME_KEY = "runner";
-const W = 480;
-const H = 300;
-const CHAR_X = 80;
+const W = 600;
+const H = 380;
+const CHAR_X = 90;
 const CHAR_SIZE = 40;
 
 type GameStatus = "select" | "idle" | "playing" | "dead";
@@ -50,6 +50,8 @@ export default function RunnerPage() {
     groundOffset: 0,
     inAir: false,
     lastHundreds: 0,
+    scorePopTimer: 0,
+    scorePopY: 0,
   });
   const rafRef = useRef<number>(0);
   const audioRef = useRef<RunnerAudio | null>(null);
@@ -123,7 +125,28 @@ export default function RunnerPage() {
 
     function draw() {
       const g = gameRef.current;
-      if (document.hidden || g.status !== "playing") {
+      if (document.hidden) {
+        rafRef.current = requestAnimationFrame(draw);
+        return;
+      }
+
+      // When dead: keep rendering world + falling character (no game logic)
+      if (g.status === "dead") {
+        const world = getWorld(Math.floor(g.score));
+        // Sky
+        ctx.fillStyle = world.skyColor;
+        ctx.fillRect(0, 0, W, H - GROUND_HEIGHT);
+        // Ground
+        ctx.fillStyle = world.groundColor;
+        ctx.fillRect(0, H - GROUND_HEIGHT, W, GROUND_HEIGHT);
+        ctx.fillStyle = "rgba(0,0,0,0.3)";
+        ctx.fillRect(0, H - GROUND_HEIGHT, W, 3);
+        // Falling character (gravity applied)
+        g.charVY = (g.charVY ?? 0) + GRAVITY;
+        g.charY = Math.min(g.charY + g.charVY, H - GROUND_HEIGHT - CHAR_SIZE);
+        ctx.font = `${CHAR_SIZE}px serif`;
+        ctx.textBaseline = "top";
+        ctx.fillText(char.emoji, CHAR_X - CHAR_SIZE / 2, g.charY);
         rafRef.current = requestAnimationFrame(draw);
         return;
       }
@@ -162,7 +185,12 @@ export default function RunnerPage() {
       for (const o of g.obstacles) { o.x -= g.speed; }
       g.score += 0.1 * world.multiplier;
       const hundreds = Math.floor(g.score / 100);
-      if (hundreds > g.lastHundreds) { audioRef.current?.playScore(); g.lastHundreds = hundreds; }
+      if (hundreds > g.lastHundreds) {
+        audioRef.current?.playScore();
+        g.lastHundreds = hundreds;
+        g.scorePopTimer = 30;
+        g.scorePopY = H - GROUND_HEIGHT - CHAR_SIZE - 20;
+      }
       setUiScore(Math.floor(g.score));
 
       // Collision
@@ -183,6 +211,7 @@ export default function RunnerPage() {
           if (newChars.length > 0) setNewUnlock(newChars[0].label);
           setHS(Math.max(finalScore, hs));
           setUiStatus("dead");
+          rafRef.current = requestAnimationFrame(draw);
           return;
         }
       }
@@ -207,6 +236,22 @@ export default function RunnerPage() {
         ctx.stroke();
       }
 
+      // Score milestone popup
+      if (g.scorePopTimer > 0) {
+        ctx.globalAlpha = g.scorePopTimer / 30;
+        ctx.fillStyle = "#ffe600";
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = "#ffe600";
+        ctx.font = "bold 14px monospace";
+        ctx.textAlign = "center";
+        ctx.fillText(`+${Math.floor(g.score / 100) * 100}!`, CHAR_X + 40, g.scorePopY);
+        ctx.shadowBlur = 0;
+        ctx.globalAlpha = 1;
+        ctx.textAlign = "left";
+        g.scorePopY -= 1.2;
+        g.scorePopTimer--;
+      }
+
       // Draw obstacles
       ctx.textBaseline = "top";
       for (const o of g.obstacles) {
@@ -217,20 +262,6 @@ export default function RunnerPage() {
       // Draw character
       ctx.font = `${CHAR_SIZE}px serif`;
       ctx.fillText(char.emoji, CHAR_X - CHAR_SIZE / 2, g.charY);
-
-      // Score + world label
-      ctx.fillStyle = "rgba(0,0,0,0.5)";
-      ctx.font = "bold 18px monospace";
-      ctx.textAlign = "right";
-      ctx.fillText(String(Math.floor(g.score)), W - 12, 12);
-      ctx.textAlign = "left";
-      ctx.font = "10px monospace";
-      ctx.fillStyle = char.color;
-      ctx.fillText(world.label, 12, 12);
-      if (world.multiplier > 1) {
-        ctx.fillStyle = "#ffe600";
-        ctx.fillText(`×${world.multiplier.toFixed(1)}`, 12, 26);
-      }
 
       rafRef.current = requestAnimationFrame(draw);
     }
@@ -253,7 +284,7 @@ export default function RunnerPage() {
   const char = CHARACTERS[selectedChar];
 
   return (
-    <div className="flex flex-col items-center min-h-screen p-4 gap-4">
+    <div className="flex flex-col items-center p-4 gap-3 w-full max-w-2xl mx-auto">
       <div className="flex items-center justify-between w-full max-w-lg">
         <Link href="/games" className="text-[0.5rem] neon-text-green hover:opacity-80">← BACK</Link>
         <h1 className="text-[0.6rem] sm:text-xs neon-text neon-text-green">PIXEL DASH</h1>
@@ -263,9 +294,24 @@ export default function RunnerPage() {
         </div>
       </div>
 
+      {/* Score HUD — shown during play */}
+      {(uiStatus === "playing" || uiStatus === "dead") && (
+        <div className="flex justify-between w-full px-1">
+          <span
+            className="font-pixel text-[0.5rem]"
+            style={{ color: CHARACTERS[selectedChar].color }}
+          >
+            {/* world label shown inline */}
+          </span>
+          <span className="font-pixel text-[0.55rem] text-white tabular-nums">
+            {uiScore}
+          </span>
+        </div>
+      )}
+
       {/* Canvas always rendered — character select shown as overlay */}
       <div
-        className="relative cursor-pointer"
+        className="relative cursor-pointer w-full"
         onClick={() => { if (uiStatus === "playing") jump(); }}
         onTouchStart={(e) => { e.preventDefault(); if (uiStatus === "playing") jump(); }}
       >
@@ -273,8 +319,8 @@ export default function RunnerPage() {
           ref={canvasRef}
           width={W}
           height={H}
-          className="border border-neon-green/20 rounded-sm"
-          style={{ imageRendering: "pixelated", touchAction: "none", maxWidth: "100%" }}
+          className="border border-neon-green/20 rounded-sm w-full"
+          style={{ imageRendering: "pixelated", touchAction: "none", maxWidth: `${W}px` }}
         />
 
         {/* Character select overlay */}

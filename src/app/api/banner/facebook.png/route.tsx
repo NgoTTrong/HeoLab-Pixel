@@ -8,6 +8,7 @@ const H = 312;
 const NEON_GREEN = "#39ff14";
 const TEXT_COLOR = "#ffffff";
 const MUTED      = "#666666";
+const DOT_COLOR  = "rgba(57,255,20,0.10)";
 
 const GAP_SM = "10px";  // outer column gap
 const GAP_MD = "14px";  // inner row gap (emoji row + wordmark row)
@@ -34,8 +35,7 @@ export async function GET() {
             style={{
               position: "absolute",
               inset: 0,
-              backgroundImage:
-                "radial-gradient(circle, rgba(57,255,20,0.10) 1px, transparent 1px)",
+              backgroundImage: `radial-gradient(circle, ${DOT_COLOR} 1px, transparent 1px)`,
               backgroundSize: "24px 24px",
             }}
           />

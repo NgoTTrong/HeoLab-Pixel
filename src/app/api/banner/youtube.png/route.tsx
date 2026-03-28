@@ -9,6 +9,7 @@ const DARK_BG    = "#0a0a0a";
 const NEON_GREEN = "#39ff14";
 const TEXT_COLOR = "#ffffff";
 const MUTED      = "#666666";
+const DOT_COLOR  = "rgba(57,255,20,0.10)";
 const GAP_LG     = "48px";
 const GAP_MD     = "28px";
 const GAP_SM     = "20px";
@@ -35,8 +36,7 @@ export async function GET() {
             style={{
               position: "absolute",
               inset: 0,
-              backgroundImage:
-                "radial-gradient(circle, rgba(57,255,20,0.08) 1px, transparent 1px)",
+              backgroundImage: `radial-gradient(circle, ${DOT_COLOR} 1px, transparent 1px)`,
               backgroundSize: "48px 48px",
             }}
           />

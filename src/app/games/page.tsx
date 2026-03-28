@@ -98,7 +98,7 @@ const games = [
     emoji: "👾",
     tag: "ARCADE",
     category: "ARCADE" as Category,
-    available: false,
+    available: true,
   },
 ];
 

@@ -1,4 +1,7 @@
-import { GRID_SIZE, LEVELS, POWER_UPS, POWER_UP_SPAWN_CHANCE, POWER_UP_LIFETIME_MS } from "./config";
+import {
+  GRID_SIZE, LEVELS, POWER_UPS, POWER_UP_SPAWN_CHANCE, POWER_UP_LIFETIME_MS,
+  BOMB_SCORE_THRESHOLD, BOMB_SPAWN_CHANCE, BOMB_LIFETIME_MS,
+} from "./config";
 import type { PowerUpType } from "./config";
 
 export type Direction = "UP" | "DOWN" | "LEFT" | "RIGHT";
@@ -8,8 +11,8 @@ export interface Position { x: number; y: number; }
 
 export interface ActivePowerUp {
   type: PowerUpType;
-  expiresAt: number | null; // null = count-based
-  scoreDoubleRemaining: number; // for scoreDouble
+  expiresAt: number | null;
+  scoreDoubleRemaining: number;
 }
 
 export interface SpawnedPowerUp {
@@ -18,13 +21,19 @@ export interface SpawnedPowerUp {
   expiresAt: number;
 }
 
+export interface BombState {
+  pos: Position;
+  spawnedAt: number;
+}
+
 export interface SnakeState {
-  snake: Position[];       // [head, ...body]
+  snake: Position[];
   direction: Direction;
-  pendingDir: Direction;   // buffered next direction
+  pendingDir: Direction;
   food: Position;
   spawnedPowerUp: SpawnedPowerUp | null;
   activePowerUp: ActivePowerUp | null;
+  bomb: BombState | null;     // NEW
   score: number;
   level: number;
   status: GameStatus;
@@ -68,6 +77,7 @@ function initialState(): SnakeState {
     food: randomPos(snake),
     spawnedPowerUp: null,
     activePowerUp: null,
+    bomb: null,                // NEW
     score: 0,
     level: 0,
     status: "idle",
@@ -97,16 +107,13 @@ export function snakeReducer(state: SnakeState, action: SnakeAction): SnakeState
       const head = state.snake[0];
       const isGhost = state.activePowerUp?.type === "ghost";
 
-      // Calculate new head position
       let nx = head.x + (dir === "RIGHT" ? 1 : dir === "LEFT" ? -1 : 0);
       let ny = head.y + (dir === "DOWN"  ? 1 : dir === "UP"   ? -1 : 0);
 
       if (isGhost) {
-        // Wrap around walls
         nx = (nx + GRID_SIZE) % GRID_SIZE;
         ny = (ny + GRID_SIZE) % GRID_SIZE;
       } else {
-        // Wall collision = death
         if (nx < 0 || nx >= GRID_SIZE || ny < 0 || ny >= GRID_SIZE) {
           return { ...state, status: "dead" };
         }
@@ -114,37 +121,46 @@ export function snakeReducer(state: SnakeState, action: SnakeAction): SnakeState
 
       const newHead = { x: nx, y: ny };
 
-      // Self collision (skip if ghost)
+      // Self collision
       if (!isGhost && state.snake.some((s) => posEq(s, newHead))) {
         return { ...state, status: "dead" };
       }
 
-      // Check food
+      // Bomb collision — instant death
+      if (state.bomb && posEq(newHead, state.bomb.pos)) {
+        return { ...state, status: "dead" };
+      }
+
       const ateFood = posEq(newHead, state.food);
       const ateMultiplier = state.activePowerUp?.type === "scoreDouble" ? 2 : 1;
 
       let newSnake = [newHead, ...state.snake];
-      if (!ateFood) newSnake = newSnake.slice(0, -1); // move (no grow)
+      if (!ateFood) newSnake = newSnake.slice(0, -1);
 
       let newScore = state.score;
       let newActivePowerUp = state.activePowerUp;
       let newSpawned = state.spawnedPowerUp;
+      let newBomb = state.bomb;
 
       // Expire spawned power-up if timed out
       if (newSpawned && action.now > newSpawned.expiresAt) {
         newSpawned = null;
       }
 
+      // Expire bomb if timed out
+      if (newBomb && action.now > newBomb.spawnedAt + BOMB_LIFETIME_MS) {
+        newBomb = null;
+      }
+
       if (ateFood) {
         newScore += 1 * ateMultiplier;
 
-        // Decrement scoreDouble counter
         if (newActivePowerUp?.type === "scoreDouble") {
           const remaining = newActivePowerUp.scoreDoubleRemaining - 1;
           newActivePowerUp = remaining <= 0 ? null : { ...newActivePowerUp, scoreDoubleRemaining: remaining };
         }
 
-        // Maybe spawn power-up
+        // Spawn power-up
         if (!newSpawned && Math.random() < POWER_UP_SPAWN_CHANCE) {
           const def = POWER_UPS[Math.floor(Math.random() * POWER_UPS.length)];
           newSpawned = {
@@ -153,9 +169,26 @@ export function snakeReducer(state: SnakeState, action: SnakeAction): SnakeState
             expiresAt: action.now + POWER_UP_LIFETIME_MS,
           };
         }
+
+        // Spawn bomb (independent of power-up)
+        if (
+          !newBomb &&
+          newScore >= BOMB_SCORE_THRESHOLD &&
+          Math.random() < BOMB_SPAWN_CHANCE
+        ) {
+          const excludePositions = [
+            ...newSnake,
+            state.food,
+            ...(newSpawned ? [newSpawned.pos] : []),
+          ];
+          newBomb = {
+            pos: randomPos(excludePositions),
+            spawnedAt: action.now,
+          };
+        }
       }
 
-      // Check power-up pickup
+      // Power-up pickup
       if (newSpawned && posEq(newHead, newSpawned.pos)) {
         const def = POWER_UPS.find((p) => p.type === newSpawned!.type)!;
         newActivePowerUp = {
@@ -182,6 +215,7 @@ export function snakeReducer(state: SnakeState, action: SnakeAction): SnakeState
         food: ateFood ? randomPos([...newSnake]) : state.food,
         spawnedPowerUp: newSpawned,
         activePowerUp: newActivePowerUp,
+        bomb: newBomb,
         score: newScore,
         level: Math.max(0, newLevel),
         status: "playing",

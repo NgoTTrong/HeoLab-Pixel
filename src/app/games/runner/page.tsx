@@ -146,8 +146,11 @@ export default function RunnerPage() {
       // When dead: keep rendering world + falling character (no game logic)
       if (g.status === "dead") {
         const world = getWorld(Math.floor(g.score));
-        // Sky
-        ctx.fillStyle = world.skyColor;
+        // Sky (gradient)
+        const deadSkyGrad = ctx.createLinearGradient(0, 0, 0, H - GROUND_HEIGHT);
+        deadSkyGrad.addColorStop(0, world.skyColor);
+        deadSkyGrad.addColorStop(1, world.skyColorBottom);
+        ctx.fillStyle = deadSkyGrad;
         ctx.fillRect(0, 0, W, H - GROUND_HEIGHT);
         // Ground
         ctx.fillStyle = world.groundColor;
@@ -157,16 +160,19 @@ export default function RunnerPage() {
         // Falling character (gravity applied)
         g.charVY = (g.charVY ?? 0) + GRAVITY;
         g.charY = Math.min(g.charY + g.charVY, H - GROUND_HEIGHT - CHAR_SIZE);
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = "rgba(0,0,0,0.85)";
         ctx.font = `${CHAR_SIZE}px serif`;
         ctx.textBaseline = "top";
         ctx.fillText(char.emoji, CHAR_X - CHAR_SIZE / 2, g.charY);
+        ctx.shadowBlur = 0;
         rafRef.current = requestAnimationFrame(draw);
         return;
       }
 
       g.frame++;
       const world = getWorld(Math.floor(g.score));
-      g.speed = Math.min(MAX_SPEED, BASE_SPEED + g.score / 300);
+      g.speed = Math.min(MAX_SPEED, BASE_SPEED + g.score / 600);
       g.groundOffset = (g.groundOffset + g.speed) % 40;
 
       // Physics
@@ -240,8 +246,11 @@ export default function RunnerPage() {
         }
       }
 
-      // Draw sky
-      ctx.fillStyle = world.skyColor;
+      // Draw sky (gradient)
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, H - GROUND_HEIGHT);
+      skyGrad.addColorStop(0, world.skyColor);
+      skyGrad.addColorStop(1, world.skyColorBottom);
+      ctx.fillStyle = skyGrad;
       ctx.fillRect(0, 0, W, H - GROUND_HEIGHT);
 
       // Draw ground
@@ -278,13 +287,18 @@ export default function RunnerPage() {
 
       // Draw obstacles
       ctx.textBaseline = "top";
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = "rgba(0,0,0,0.85)";
       for (const o of g.obstacles) {
         ctx.font = `${o.height}px serif`;
         ctx.fillText(o.emoji, o.x, o.flyY);
       }
+      ctx.shadowBlur = 0;
 
       // Draw character (crouched when sliding)
       ctx.save();
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = "rgba(0,0,0,0.85)";
       if (g.isSliding) {
         ctx.translate(CHAR_X, g.charY + CHAR_SIZE);
         ctx.scale(1, 0.5);

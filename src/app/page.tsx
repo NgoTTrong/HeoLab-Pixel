@@ -375,7 +375,7 @@ export default function HomePage() {
           Object.assign(m, mkMeteorState(W, H, m.el));
         }
         const ang = Math.atan2(m.vy, m.vx) * (180 / Math.PI);
-        m.el.style.transform = `translate(${m.x}px, ${m.y}px) rotate(${ang + 45}deg)`;
+        m.el.style.transform = `translate(${m.x}px, ${m.y}px) rotate(${ang + 225}deg)`;
       });
 
       // ── Ships & Lasers ────────────────────────────────────
@@ -388,7 +388,7 @@ export default function HomePage() {
         // Tangent direction (derivative of orbit)
         const tdx = -Math.sin(s.angle) * s.rx * s.speed;
         const tdy =  Math.cos(s.angle) * s.ry * s.speed;
-        const rot  = Math.atan2(tdy, tdx) * (180 / Math.PI) - 90;
+        const rot  = Math.atan2(tdy, tdx) * (180 / Math.PI) + 90;
 
         s.el.style.transform = `translate(${sx}px, ${sy}px) rotate(${rot}deg)`;
 

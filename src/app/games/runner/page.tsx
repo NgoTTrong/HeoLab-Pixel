@@ -146,7 +146,8 @@ export default function RunnerPage() {
       // When dead: keep rendering world + falling character (no game logic)
       if (g.status === "dead") {
         const world = getWorld(Math.floor(g.score));
-        // Sky (gradient)
+        // Sky (gradient) — intentionally separate from playing branch;
+        // playing branch will use lerped transition colors in a later task
         const deadSkyGrad = ctx.createLinearGradient(0, 0, 0, H - GROUND_HEIGHT);
         deadSkyGrad.addColorStop(0, world.skyColor);
         deadSkyGrad.addColorStop(1, world.skyColorBottom);

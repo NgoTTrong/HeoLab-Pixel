@@ -337,14 +337,17 @@ export default function RunnerPage() {
       ctx.fillRect(0, 0, W, H - GROUND_HEIGHT);
 
       // Parallax clouds
-      const fromCloudAlpha = (g.fromSkyTop === "#0d0d1a" || g.fromSkyTop === "#1a0500") ? 0.1 : 0.55;
+      const fromCloudAlpha = (g.lastWorldId === "storm" || g.lastWorldId === "lava") ? 0.1 : 0.55;
       const toCloudAlpha = (world.id === "storm" || world.id === "lava") ? 0.1 : 0.55;
       const cloudAlpha = fromCloudAlpha + (toCloudAlpha - fromCloudAlpha) * g.transitionT;
       if (cloudAlpha > 0.01) {
         ctx.save();
         for (const cloud of g.clouds) {
           cloud.x -= g.speed * cloud.speed;
-          if (cloud.x + cloud.r * 2.5 < 0) cloud.x = W + cloud.r;
+          if (cloud.x + cloud.r * 2.5 < 0) {
+            cloud.x = W + cloud.r;
+            cloud.y = 20 + Math.random() * 80;
+          }
           ctx.globalAlpha = cloudAlpha;
           ctx.fillStyle = "#ffffff";
           ctx.shadowBlur = 0;

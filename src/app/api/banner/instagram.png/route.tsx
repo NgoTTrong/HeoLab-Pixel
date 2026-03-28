@@ -16,13 +16,6 @@ const DOT_COLOR  = "rgba(57,255,20,0.10)";
 const GAP_SM     = "18px";
 const GAP_MD     = "20px";
 
-const CORNERS = [
-  { top: "24px",    left: "24px",  color: NEON_GREEN  },
-  { top: "24px",    right: "24px", color: NEON_PINK   },
-  { bottom: "24px", left: "24px",  color: NEON_BLUE   },
-  { bottom: "24px", right: "24px", color: NEON_YELLOW },
-] as const;
-
 export async function GET() {
   try {
     return new ImageResponse(
@@ -51,22 +44,10 @@ export async function GET() {
           />
 
           {/* Corner pixel squares */}
-          {CORNERS.map((c, i) => (
-            <div
-              key={i}
-              style={{
-                position: "absolute",
-                width: "40px",
-                height: "40px",
-                background: c.color,
-                boxShadow: `0 0 12px ${c.color}`,
-                top: "top" in c ? c.top : undefined,
-                bottom: "bottom" in c ? c.bottom : undefined,
-                left: "left" in c ? c.left : undefined,
-                right: "right" in c ? c.right : undefined,
-              }}
-            />
-          ))}
+          <div style={{ position: "absolute", width: "40px", height: "40px", background: NEON_GREEN,  top: "24px",    left: "24px"  }} />
+          <div style={{ position: "absolute", width: "40px", height: "40px", background: NEON_PINK,   top: "24px",    right: "24px" }} />
+          <div style={{ position: "absolute", width: "40px", height: "40px", background: NEON_BLUE,   bottom: "24px", left: "24px"  }} />
+          <div style={{ position: "absolute", width: "40px", height: "40px", background: NEON_YELLOW, bottom: "24px", right: "24px" }} />
 
           {/* Wordmark: < HeoLab /> */}
           <div style={{ display: "flex", alignItems: "center", gap: GAP_MD }}>

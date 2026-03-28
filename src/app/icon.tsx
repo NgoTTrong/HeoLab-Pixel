@@ -22,6 +22,6 @@ export default function Icon() {
         🕹️
       </div>
     ),
-    { ...size }
+    { ...size, emoji: "noto" }
   );
 }

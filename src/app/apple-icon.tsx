@@ -22,6 +22,6 @@ export default function AppleIcon() {
         🕹️
       </div>
     ),
-    { ...size }
+    { ...size, emoji: "noto" }
   );
 }

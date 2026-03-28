@@ -1,12 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 
-// ── Data ────────────────────────────────────────────────
+// ── Types ────────────────────────────────────────────────
 type Category = "ALL" | "PUZZLE" | "CASUAL" | "ARCADE";
 
+type EmojiPhysics = {
+  offsetX: number;
+  offsetY: number;
+  vx: number;
+  vy: number;
+  homeX: number;
+  homeY: number;
+};
+
+// ── Data ────────────────────────────────────────────────
 const allGames = [
   {
     title: "DUNGEON SWEEP",
@@ -158,33 +168,191 @@ const TABS: Category[] = ["ALL", "PUZZLE", "CASUAL", "ARCADE"];
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState<Category>("ALL");
 
+  // Mouse interaction refs (no state → no re-renders)
+  const cursorRef       = useRef<HTMLDivElement>(null);
+  const heroRef         = useRef<HTMLElement>(null);
+  const emojiRefs       = useRef<(HTMLDivElement | null)[]>([]);
+  const physicsRef      = useRef<EmojiPhysics[]>([]);
+  const mouseRef        = useRef({ x: -9999, y: -9999 });
+  const rafRef          = useRef<number>(0);
+  const lastParticleRef = useRef(0);
+  const particleCountRef = useRef(0);
+
+  useEffect(() => {
+    const hero = heroRef.current;
+    if (!hero) return;
+
+    // ── Init physics ──────────────────────────────────────
+    const initPhysics = () => {
+      physicsRef.current = emojiRefs.current.map((el) => {
+        if (!el) return { offsetX: 0, offsetY: 0, vx: 0, vy: 0, homeX: 0, homeY: 0 };
+        const r = el.getBoundingClientRect();
+        return { offsetX: 0, offsetY: 0, vx: 0, vy: 0, homeX: r.left + r.width / 2, homeY: r.top + r.height / 2 };
+      });
+    };
+
+    initPhysics();
+    window.addEventListener("resize", initPhysics);
+
+    // ── Particle spawn ────────────────────────────────────
+    const spawnParticle = (cx: number, cy: number) => {
+      if (particleCountRef.current >= 25) return;
+      const colors = ["#39ff14", "#ff2d95", "#ffe600"];
+      const color  = colors[Math.floor(Math.random() * colors.length)];
+      const size   = Math.random() * 3 + 2;
+      const ox     = (Math.random() - 0.5) * 16;
+      const oy     = (Math.random() - 0.5) * 16;
+
+      const el = document.createElement("div");
+      el.style.cssText = [
+        "position:fixed",
+        `left:${cx + ox - size / 2}px`,
+        `top:${cy + oy - size / 2}px`,
+        `width:${size}px`,
+        `height:${size}px`,
+        `background:${color}`,
+        "border-radius:1px",
+        "pointer-events:none",
+        "z-index:9999",
+        "animation:particleFade 0.5s ease-out forwards",
+      ].join(";");
+
+      particleCountRef.current++;
+      document.body.appendChild(el);
+      el.addEventListener("animationend", () => {
+        el.remove();
+        particleCountRef.current--;
+      });
+    };
+
+    // ── RAF physics loop ──────────────────────────────────
+    const REPEL_RADIUS = 130;
+
+    const tick = () => {
+      const t = Date.now() / 1000;
+      const { x: mx, y: my } = mouseRef.current;
+
+      physicsRef.current.forEach((p, i) => {
+        const el   = emojiRefs.current[i];
+        const item = floatingEmojis[i];
+        if (!el || !item) return;
+
+        // Sinusoidal float (replaces removed CSS animation)
+        const phase    = (2 * Math.PI / item.duration) * t + item.delay;
+        const floatY   = Math.sin(phase) * 8;
+        const floatRot = Math.sin(phase) * 3;
+
+        // Current screen center of emoji
+        const curX = p.homeX + p.offsetX;
+        const curY = p.homeY + p.offsetY;
+        const dx   = mx - curX;
+        const dy   = my - curY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        // Repel force
+        if (dist < REPEL_RADIUS && dist > 1) {
+          const force = ((REPEL_RADIUS - dist) / REPEL_RADIUS) * 10;
+          p.vx -= (dx / dist) * force;
+          p.vy -= (dy / dist) * force;
+        }
+
+        // Spring back to home (offset → 0)
+        p.vx += -p.offsetX * 0.08;
+        p.vy += -p.offsetY * 0.08;
+
+        // Damping
+        p.vx *= 0.85;
+        p.vy *= 0.85;
+
+        p.offsetX += p.vx;
+        p.offsetY += p.vy;
+
+        el.style.transform = `translate(${p.offsetX}px, ${p.offsetY + floatY}px) rotate(${floatRot}deg)`;
+      });
+
+      rafRef.current = requestAnimationFrame(tick);
+    };
+
+    rafRef.current = requestAnimationFrame(tick);
+
+    // ── Mouse events ──────────────────────────────────────
+    const handleMouseMove = (e: MouseEvent) => {
+      mouseRef.current = { x: e.clientX, y: e.clientY };
+
+      if (cursorRef.current) {
+        cursorRef.current.style.transform = `translate(${e.clientX - 8}px, ${e.clientY - 8}px)`;
+      }
+
+      const now = Date.now();
+      if (now - lastParticleRef.current > 40) {
+        lastParticleRef.current = now;
+        spawnParticle(e.clientX, e.clientY);
+      }
+    };
+
+    const handleMouseEnter = () => {
+      if (cursorRef.current) cursorRef.current.style.opacity = "1";
+    };
+
+    const handleMouseLeave = () => {
+      if (cursorRef.current) cursorRef.current.style.opacity = "0";
+      mouseRef.current = { x: -9999, y: -9999 };
+    };
+
+    hero.addEventListener("mousemove", handleMouseMove);
+    hero.addEventListener("mouseenter", handleMouseEnter);
+    hero.addEventListener("mouseleave", handleMouseLeave);
+
+    return () => {
+      cancelAnimationFrame(rafRef.current);
+      window.removeEventListener("resize", initPhysics);
+      hero.removeEventListener("mousemove", handleMouseMove);
+      hero.removeEventListener("mouseenter", handleMouseEnter);
+      hero.removeEventListener("mouseleave", handleMouseLeave);
+    };
+  }, []);
+
   const filtered =
     activeTab === "ALL" ? allGames : allGames.filter((g) => g.category === activeTab);
 
   return (
     <>
+      {/* Custom pixel cursor — visible only inside hero */}
+      <div
+        ref={cursorRef}
+        className="fixed pointer-events-none z-[9998] opacity-0"
+        style={{ top: 0, left: 0, willChange: "transform" }}
+      >
+        <div className="relative w-4 h-4">
+          <div className="absolute top-[7px] left-0 w-full h-[2px] bg-neon-green shadow-[0_0_4px_#39ff14]" />
+          <div className="absolute left-[7px] top-0 h-full w-[2px] bg-neon-green shadow-[0_0_4px_#39ff14]" />
+          <div className="absolute top-[5px] left-[5px] w-[6px] h-[6px] bg-neon-green shadow-[0_0_6px_#39ff14]" />
+        </div>
+      </div>
+
       <Navbar />
       <main className="font-inter">
 
         {/* ── HERO ──────────────────────────────────────── */}
-        <section className="relative min-h-screen flex flex-col items-center justify-center text-center px-4 overflow-hidden">
+        <section
+          ref={heroRef}
+          className="relative min-h-screen flex flex-col items-center justify-center text-center px-4 overflow-hidden"
+          style={{ cursor: "none" }}
+        >
           {/* Dot grid */}
           <div className="absolute inset-0 hero-dot-grid opacity-60" />
           {/* Gradient overlays */}
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(88,28,135,0.25)_0%,transparent_60%)]" />
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom-right,rgba(0,212,255,0.08)_0%,transparent_50%)]" />
 
-          {/* Floating emojis — desktop only */}
+          {/* Floating emojis — desktop only, physics-driven */}
           <div className="hidden md:block absolute inset-0 pointer-events-none select-none">
             {floatingEmojis.map((item, i) => (
               <div
                 key={i}
+                ref={(el) => { emojiRefs.current[i] = el; }}
                 className="absolute text-4xl opacity-30"
-                style={{
-                  top: item.top,
-                  left: item.left,
-                  animation: `float ${item.duration}s ease-in-out ${item.delay}s infinite alternate`,
-                }}
+                style={{ top: item.top, left: item.left }}
               >
                 {item.emoji}
               </div>
@@ -193,7 +361,6 @@ export default function HomePage() {
 
           {/* Content */}
           <div className="relative z-10 flex flex-col items-center gap-6 fade-up">
-            {/* Logo */}
             <div className="flex items-center gap-3">
               <span className="font-pixel text-neon-green text-xl">&lt;</span>
               <h1 className="text-6xl md:text-8xl font-bold tracking-tight text-white">
@@ -202,7 +369,6 @@ export default function HomePage() {
               <span className="font-pixel text-neon-green text-xl">/&gt;</span>
             </div>
 
-            {/* Tagline */}
             <p className="text-2xl md:text-3xl font-semibold text-gray-300 tracking-wide">
               Play. Explore. Have Fun.
             </p>
@@ -210,7 +376,6 @@ export default function HomePage() {
               Free browser games, crafted with care. No download. No account.
             </p>
 
-            {/* CTA */}
             <Link
               href="#games"
               className="mt-2 px-8 py-3 border border-neon-green text-neon-green font-pixel text-[0.6rem]
@@ -219,7 +384,6 @@ export default function HomePage() {
               PLAY NOW
             </Link>
 
-            {/* Stats bar */}
             <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-2">
               {[
                 ["9", "GAMES"],
@@ -233,7 +397,6 @@ export default function HomePage() {
               ))}
             </div>
 
-            {/* Scroll indicator — pulse ring */}
             <div className="mt-6 relative flex items-center justify-center w-8 h-8">
               <div className="absolute inset-0 rounded-full border border-neon-green/40"
                 style={{ animation: "pulseRing 2s ease-out infinite" }} />
@@ -248,7 +411,6 @@ export default function HomePage() {
             GAMES
           </h2>
 
-          {/* Filter tabs */}
           <div className="flex justify-center gap-2 mb-8">
             {TABS.map((tab) => (
               <button
@@ -265,7 +427,6 @@ export default function HomePage() {
             ))}
           </div>
 
-          {/* Game grid */}
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {filtered.map((game) => (
               <Link
@@ -282,29 +443,24 @@ export default function HomePage() {
                   (e.currentTarget as HTMLElement).style.boxShadow = "";
                 }}
               >
-                {/* Tag */}
                 <span
                   className="absolute top-2 right-2 font-pixel text-[0.4rem] px-1.5 py-0.5 border"
                   style={{ color: game.borderColor, borderColor: `${game.borderColor}55` }}
                 >
                   {game.tag}
                 </span>
-                {/* Emoji */}
                 <div className="text-3xl mb-3 transition-transform duration-300 group-hover:scale-110 inline-block">
                   {game.emoji}
                 </div>
-                {/* Title */}
                 <h3
                   className="font-pixel text-[0.5rem] mb-2 tracking-wider leading-relaxed"
                   style={{ color: game.borderColor }}
                 >
                   {game.title}
                 </h3>
-                {/* Subtitle */}
                 <p className="text-[0.6rem] text-gray-400 leading-relaxed hidden sm:block">
                   {game.subtitle}
                 </p>
-                {/* Play hint */}
                 <p
                   className="mt-3 text-[0.4rem] font-pixel opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                   style={{ color: game.borderColor }}
@@ -315,7 +471,6 @@ export default function HomePage() {
             ))}
           </div>
 
-          {/* View all link */}
           <div className="text-center mt-8">
             <Link
               href="/games"
@@ -383,14 +538,12 @@ export default function HomePage() {
         {/* ── FOOTER ────────────────────────────────────── */}
         <footer className="border-t border-gray-900 py-12 px-4">
           <div className="max-w-4xl mx-auto flex flex-col items-center gap-6">
-            {/* Logo */}
             <div className="flex items-center gap-2">
               <span className="font-pixel text-neon-green text-xs">&lt;</span>
               <span className="font-bold text-white text-lg">HeoLab</span>
               <span className="font-pixel text-neon-green text-xs">/&gt;</span>
             </div>
 
-            {/* Nav links */}
             <div className="flex gap-6 font-pixel text-[0.45rem] text-gray-600">
               <Link href="/games" className="hover:text-neon-green transition-colors tracking-widest">
                 PLAY GAMES
@@ -400,7 +553,6 @@ export default function HomePage() {
               </Link>
             </div>
 
-            {/* Social icons */}
             <div className="flex gap-5">
               {socialLinks.map((s) => (
                 <a
@@ -420,7 +572,6 @@ export default function HomePage() {
               ))}
             </div>
 
-            {/* Copyright */}
             <p className="font-pixel text-[0.4rem] text-gray-700 tracking-widest text-center">
               © 2025 HEOLAB · ALL RIGHTS RESERVED · HEOLAB.DEV
             </p>

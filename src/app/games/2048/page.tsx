@@ -11,31 +11,34 @@ import { getHighScore, setHighScore } from "@/lib/scores";
 const GAME_KEY = "2048";
 
 export default function Game2048Page() {
-  const [state, setState] = useState<GameState2048>(createGame);
+  const [state, setState] = useState<GameState2048 | null>(null);
   const [highScore, setHigh] = useState(0);
   const [showWon, setShowWon] = useState(false);
   const touchRef = useRef<{ x: number; y: number } | null>(null);
 
+  // Init on client only — avoids SSR/CSR hydration mismatch from Math.random()
   useEffect(() => {
+    setState(createGame());
     setHigh(getHighScore(GAME_KEY));
   }, []);
 
   useEffect(() => {
+    if (!state) return;
     if (state.score > highScore) {
       setHigh(state.score);
       setHighScore(GAME_KEY, state.score);
     }
-  }, [state.score, highScore]);
+  }, [state?.score, highScore]);
 
   useEffect(() => {
-    if (state.won && !showWon) {
+    if (state?.won && !showWon) {
       setShowWon(true);
     }
-  }, [state.won, showWon]);
+  }, [state?.won, showWon]);
 
   const handleMove = useCallback(
     (dir: Direction) => {
-      setState((prev) => move(prev, dir));
+      setState((prev) => prev ? move(prev, dir) : prev);
     },
     []
   );
@@ -110,7 +113,7 @@ export default function Game2048Page() {
     <GameLayout
       title="MONSTER 2048"
       color="pink"
-      score={state.score}
+      score={state?.score ?? 0}
       highScore={highScore}
       onNewGame={handleNewGame}
       controls={
@@ -120,10 +123,11 @@ export default function Game2048Page() {
       }
     >
       <div className="flex flex-col items-center gap-4">
-        <Grid grid={state.grid} />
+        {state && <Grid grid={state.grid} />
 
+        }
         {/* Win overlay */}
-        {showWon && !state.gameOver && (
+        {showWon && !state?.gameOver && (
           <div className="fixed inset-0 z-40 flex items-center justify-center pointer-events-none animate-[overlayIn_0.5s_ease-out]">
             <div className="absolute inset-0 bg-dark-bg/30 backdrop-blur-sm" />
             <div className="relative flex flex-col items-center gap-4 pointer-events-auto">
@@ -133,7 +137,7 @@ export default function Game2048Page() {
               <h2 className="text-lg sm:text-xl neon-text-green animate-[victoryGlow_1.5s_ease-in-out_infinite]">
                 DRAGON EVOLVED!
               </h2>
-              <p className="text-[0.6rem] text-neon-green/70">SCORE: {state.score}</p>
+              <p className="text-[0.6rem] text-neon-green/70">SCORE: {state?.score}</p>
               <div className="flex gap-3">
                 <PixelButton color="green" onClick={() => setShowWon(false)}>
                   KEEP GOING
@@ -147,7 +151,7 @@ export default function Game2048Page() {
         )}
 
         {/* Game over overlay */}
-        {state.gameOver && (
+        {state?.gameOver && (
           <div className="fixed inset-0 z-40 flex items-center justify-center pointer-events-none animate-[overlayIn_0.5s_ease-out]">
             <div className="absolute inset-0 bg-dark-bg/30 backdrop-blur-sm" />
             <div className="relative flex flex-col items-center gap-4 pointer-events-auto">

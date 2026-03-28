@@ -3,12 +3,9 @@ import { ImageResponse } from "next/og";
 export const size = { width: 180, height: 180 };
 export const contentType = "image/png";
 
-const BG    = "#0a0a0a";
-const GREEN = "#39ff14";
+const BG = "#0a0a0a";
 
 export default function AppleIcon() {
-  const S = 180;
-
   return new ImageResponse(
     (
       <div
@@ -19,42 +16,10 @@ export default function AppleIcon() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          fontFamily: "sans-serif",
+          fontSize: 130,
         }}
       >
-        {/* Joystick top */}
-        <div
-          style={{
-            position: "absolute",
-            background: GREEN,
-            width: Math.round(S * 0.375),
-            height: Math.round(S * 0.25),
-            top: Math.round(S * 0.125),
-            left: Math.round(S * 0.3125),
-          }}
-        />
-        {/* Joystick stick */}
-        <div
-          style={{
-            position: "absolute",
-            background: GREEN,
-            width: Math.round(S * 0.125),
-            height: Math.round(S * 0.25),
-            top: Math.round(S * 0.375),
-            left: Math.round(S * 0.4375),
-          }}
-        />
-        {/* Base plate */}
-        <div
-          style={{
-            position: "absolute",
-            background: GREEN,
-            width: Math.round(S * 0.625),
-            height: Math.round(S * 0.1875),
-            top: Math.round(S * 0.625),
-            left: Math.round(S * 0.1875),
-          }}
-        />
+        🕹️
       </div>
     ),
     { ...size }

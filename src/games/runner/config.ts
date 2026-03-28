@@ -60,10 +60,10 @@ export const WORLDS: World[] = [
 ];
 
 export const OBSTACLES: Obstacle[] = [
-  { id: "cactus",  minScore: 0,   emoji: "🌵", width: 28, height: 48, isFlying: false },
-  { id: "ptero",   minScore: 100, emoji: "🦅", width: 36, height: 28, isFlying: true  },
-  { id: "boulder", minScore: 300, emoji: "🪨", width: 36, height: 36, isFlying: false },
-  { id: "lava",    minScore: 600, emoji: "🌋", width: 44, height: 44, isFlying: false },
+  { id: "cactus",  minScore: 0,   emoji: "🌵", width: 36, height: 58, isFlying: false },
+  { id: "ptero",   minScore: 100, emoji: "🦅", width: 44, height: 36, isFlying: true  },
+  { id: "boulder", minScore: 300, emoji: "🪨", width: 46, height: 46, isFlying: false },
+  { id: "lava",    minScore: 600, emoji: "🌋", width: 54, height: 54, isFlying: false },
 ];
 
 export function getWorld(score: number): World {

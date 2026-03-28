@@ -16,7 +16,7 @@ const GAME_KEY = "runner";
 const W = 600;
 const H = 380;
 const CHAR_X = 90;
-const CHAR_SIZE = 40;
+const CHAR_SIZE = 52;
 
 type GameStatus = "select" | "idle" | "playing" | "dead";
 
@@ -226,12 +226,11 @@ export default function RunnerPage() {
         // Falling character (gravity applied)
         g.charVY = (g.charVY ?? 0) + GRAVITY;
         g.charY = Math.min(g.charY + g.charVY, H - GROUND_HEIGHT - CHAR_SIZE);
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = "rgba(0,0,0,0.85)";
+        ctx.filter = "drop-shadow(0px 2px 6px rgba(0,0,0,0.95))";
         ctx.font = `${CHAR_SIZE}px serif`;
         ctx.textBaseline = "top";
         ctx.fillText(char.emoji, CHAR_X - CHAR_SIZE / 2, g.charY);
-        ctx.shadowBlur = 0;
+        ctx.filter = "none";
         rafRef.current = requestAnimationFrame(draw);
         return;
       }
@@ -438,18 +437,16 @@ export default function RunnerPage() {
 
       // Draw obstacles
       ctx.textBaseline = "top";
-      ctx.shadowBlur = 10;
-      ctx.shadowColor = "rgba(0,0,0,0.85)";
+      ctx.filter = "drop-shadow(0px 2px 6px rgba(0,0,0,0.95))";
       for (const o of g.obstacles) {
         ctx.font = `${o.height}px serif`;
         ctx.fillText(o.emoji, o.x, o.flyY);
       }
-      ctx.shadowBlur = 0;
+      ctx.filter = "none";
 
       // Draw character (crouched when sliding)
       ctx.save();
-      ctx.shadowBlur = 10;
-      ctx.shadowColor = "rgba(0,0,0,0.85)";
+      ctx.filter = "drop-shadow(0px 2px 6px rgba(0,0,0,0.95))";
       if (g.isSliding) {
         ctx.translate(CHAR_X, g.charY + CHAR_SIZE);
         ctx.scale(1, 0.5);
@@ -542,7 +539,7 @@ export default function RunnerPage() {
           width={W}
           height={H}
           className="border border-neon-green/20 rounded-sm w-full"
-          style={{ imageRendering: "pixelated", touchAction: "none", maxWidth: `${W}px` }}
+          style={{ touchAction: "none", maxWidth: `${W}px` }}
         />
 
         {/* Character select overlay */}

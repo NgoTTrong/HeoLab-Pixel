@@ -15,6 +15,7 @@ interface GameLayoutProps {
   onNewGame?: () => void;
   children: React.ReactNode;
   controls?: React.ReactNode;
+  actions?: React.ReactNode;
 }
 
 function formatTime(seconds: number): string {
@@ -32,6 +33,7 @@ export default function GameLayout({
   onNewGame,
   children,
   controls,
+  actions,
 }: GameLayoutProps) {
   return (
     <div className="flex flex-col min-h-screen p-4 gap-4">
@@ -54,10 +56,11 @@ export default function GameLayout({
       </div>
 
       {/* Score bar */}
-      {(score !== undefined || highScore !== undefined) && (
-        <div className="flex justify-center gap-8 text-[0.55rem] text-gray-400">
+      {(score !== undefined || highScore !== undefined || actions) && (
+        <div className="flex justify-center items-center gap-8 text-[0.55rem] text-gray-400">
           {score !== undefined && <span>SCORE: {score}</span>}
           {highScore !== undefined && <span>BEST: {highScore}</span>}
+          {actions}
         </div>
       )}
 

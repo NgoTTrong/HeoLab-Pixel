@@ -8,6 +8,9 @@ import { createGame, move, Direction } from "@/games/2048/logic";
 import { GameState2048 } from "@/games/2048/types";
 import { getHighScore, setHighScore } from "@/lib/scores";
 import { getMilestone } from "@/games/2048/constants";
+import { create2048Audio } from "@/games/2048/audio";
+import type { Audio2048 } from "@/games/2048/audio";
+import MuteButton from "@/components/MuteButton";
 
 const GAME_KEY = "2048";
 
@@ -18,12 +21,37 @@ export default function Game2048Page() {
   const [bonusScore, setBonusScore] = useState(0);
   const touchRef = useRef<{ x: number; y: number } | null>(null);
   const gridRef = useRef<GridHandle>(null);
+  const audioRef = useRef<Audio2048 | null>(null);
+  const [muted, setMuted] = useState(() =>
+    typeof window !== "undefined" && localStorage.getItem("2048-sound-muted") === "1"
+  );
 
   // Init on client only — avoids SSR/CSR hydration mismatch from Math.random()
   useEffect(() => {
     setState(createGame());
     setHigh(getHighScore(GAME_KEY));
   }, []);
+
+  // Lazy-init audio on first interaction
+  useEffect(() => {
+    const init = () => {
+      if (!audioRef.current) {
+        audioRef.current = create2048Audio();
+        audioRef.current.setMuted(muted);
+      }
+    };
+    window.addEventListener("pointerdown", init, { once: true });
+    window.addEventListener("keydown", init, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", init);
+      window.removeEventListener("keydown", init);
+    };
+  }, [muted]);
+
+  useEffect(() => {
+    audioRef.current?.setMuted(muted);
+    localStorage.setItem("2048-sound-muted", muted ? "1" : "0");
+  }, [muted]);
 
   useEffect(() => {
     if (state?.won && !showWon) {
@@ -66,7 +94,26 @@ export default function Game2048Page() {
 
   const handleMove = useCallback(
     (dir: Direction) => {
-      setState((prev) => prev ? move(prev, dir) : prev);
+      setState((prev) => {
+        if (!prev) return prev;
+        const next = move(prev, dir);
+        if (next !== prev) {
+          const mergedTiles = next.grid.flat().filter(t => t?.isMerged);
+          if (mergedTiles.length > 0) {
+            const highestMerge = Math.max(...mergedTiles.map(t => t!.value));
+            if (highestMerge >= 512) {
+              audioRef.current?.playMilestone(highestMerge);
+            } else {
+              audioRef.current?.playMerge();
+            }
+          } else {
+            audioRef.current?.playMove();
+          }
+          if (next.gameOver && !next.won) audioRef.current?.playGameOver();
+          if (next.won) audioRef.current?.playWin();
+        }
+        return next;
+      });
     },
     []
   );
@@ -145,6 +192,7 @@ export default function Game2048Page() {
       score={displayScore}
       highScore={highScore}
       onNewGame={handleNewGame}
+      actions={<MuteButton muted={muted} onToggle={() => setMuted(m => !m)} color="pink" />}
       controls={
         <span className="text-[0.5rem] text-gray-500">
           ARROW KEYS / WASD / SWIPE

@@ -52,6 +52,8 @@ export default function RunnerPage() {
     lastHundreds: 0,
     scorePopTimer: 0,
     scorePopY: 0,
+    isSliding: false,
+    slideTimer: 0,
   });
   const rafRef = useRef<number>(0);
   const audioRef = useRef<RunnerAudio | null>(null);
@@ -100,6 +102,15 @@ export default function RunnerPage() {
     }
   }, []);
 
+  const slide = useCallback(() => {
+    const g = gameRef.current;
+    if (g.status !== "playing") return;
+    if (!g.inAir) { // only slide on ground
+      g.isSliding = true;
+      g.slideTimer = 36; // ~600ms at 60fps
+    }
+  }, []);
+
   const startGame = useCallback(() => {
     const g = gameRef.current;
     g.status = "playing";
@@ -113,6 +124,8 @@ export default function RunnerPage() {
     g.groundOffset = 0;
     g.inAir = false;
     g.lastHundreds = 0;
+    g.isSliding = false;
+    g.slideTimer = 0;
     setUiStatus("playing");
     setUiScore(0);
   }, []);
@@ -169,6 +182,14 @@ export default function RunnerPage() {
         g.inAir = true;
       }
 
+      // Slide timer countdown
+      if (g.isSliding) {
+        g.slideTimer--;
+        if (g.slideTimer <= 0) g.isSliding = false;
+      }
+      // Cancel slide if in air
+      if (g.inAir) g.isSliding = false;
+
       // Spawn obstacles
       const availObs = getAvailableObstacles(Math.floor(g.score));
       const minInterval = Math.max(50, 100 - Math.floor(g.score / 100));
@@ -196,11 +217,14 @@ export default function RunnerPage() {
       // Collision
       for (const o of g.obstacles) {
         const oY = o.flyY;
+        const slideOffset = g.isSliding ? CHAR_SIZE * 0.55 : 0;
+        const charTop = g.charY + slideOffset + 8;
+        const charBottom = g.charY + CHAR_SIZE - 8;
         if (
           CHAR_X + CHAR_SIZE - 8 > o.x + 4 &&
           CHAR_X + 8 < o.x + o.width - 4 &&
-          g.charY + CHAR_SIZE - 8 > oY + 4 &&
-          g.charY + 8 < oY + o.height - 4
+          charBottom > oY + 4 &&
+          charTop < oY + o.height - 4
         ) {
           g.status = "dead";
           audioRef.current?.playDie();
@@ -259,9 +283,20 @@ export default function RunnerPage() {
         ctx.fillText(o.emoji, o.x, o.flyY);
       }
 
-      // Draw character
-      ctx.font = `${CHAR_SIZE}px serif`;
-      ctx.fillText(char.emoji, CHAR_X - CHAR_SIZE / 2, g.charY);
+      // Draw character (crouched when sliding)
+      ctx.save();
+      if (g.isSliding) {
+        ctx.translate(CHAR_X, g.charY + CHAR_SIZE);
+        ctx.scale(1, 0.5);
+        ctx.font = `${CHAR_SIZE}px serif`;
+        ctx.textBaseline = "bottom";
+        ctx.fillText(char.emoji, -CHAR_SIZE / 2, 0);
+      } else {
+        ctx.font = `${CHAR_SIZE}px serif`;
+        ctx.textBaseline = "top";
+        ctx.fillText(char.emoji, CHAR_X - CHAR_SIZE / 2, g.charY);
+      }
+      ctx.restore();
 
       rafRef.current = requestAnimationFrame(draw);
     }
@@ -276,10 +311,14 @@ export default function RunnerPage() {
         e.preventDefault();
         jump();
       }
+      if ((e.key === "ArrowDown" || e.key === "s" || e.key === "S") && uiStatus === "playing") {
+        e.preventDefault();
+        slide();
+      }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [jump, uiStatus]);
+  }, [jump, slide, uiStatus]);
 
   const char = CHARACTERS[selectedChar];
 
@@ -375,7 +414,7 @@ export default function RunnerPage() {
       </div>
 
       {uiStatus === "playing" && (
-        <p className="text-[0.45rem] font-pixel text-gray-600">TAP / SPACE / ↑ TO JUMP · DOUBLE JUMP AVAILABLE</p>
+        <p className="text-[0.45rem] font-pixel text-gray-600">SPACE / ↑ JUMP · ↓ SLIDE · DOUBLE JUMP AVAILABLE</p>
       )}
     </div>
   );

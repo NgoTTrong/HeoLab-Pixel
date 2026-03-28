@@ -241,6 +241,7 @@ export default function RunnerPage() {
       g.speed = Math.min(MAX_SPEED, BASE_SPEED + g.score / 600);
       g.groundOffset = (g.groundOffset + g.speed) % 40;
 
+      const prevWorldId = g.lastWorldId;
       // World transition detection
       if (world.id !== g.lastWorldId) {
         g.fromSkyTop = lerpColor(g.fromSkyTop, g.toSkyTop, g.transitionT);
@@ -337,7 +338,7 @@ export default function RunnerPage() {
       ctx.fillRect(0, 0, W, H - GROUND_HEIGHT);
 
       // Parallax clouds
-      const fromCloudAlpha = (g.lastWorldId === "storm" || g.lastWorldId === "lava") ? 0.1 : 0.55;
+      const fromCloudAlpha = (prevWorldId === "storm" || prevWorldId === "lava") ? 0.1 : 0.55;
       const toCloudAlpha = (world.id === "storm" || world.id === "lava") ? 0.1 : 0.55;
       const cloudAlpha = fromCloudAlpha + (toCloudAlpha - fromCloudAlpha) * g.transitionT;
       if (cloudAlpha > 0.01) {
@@ -350,7 +351,6 @@ export default function RunnerPage() {
           }
           ctx.globalAlpha = cloudAlpha;
           ctx.fillStyle = "#ffffff";
-          ctx.shadowBlur = 0;
           ctx.beginPath();
           ctx.arc(cloud.x, cloud.y, cloud.r, 0, Math.PI * 2);
           ctx.arc(cloud.x + cloud.r * 0.9, cloud.y - cloud.r * 0.35, cloud.r * 0.7, 0, Math.PI * 2);
@@ -373,7 +373,6 @@ export default function RunnerPage() {
           const twinkle = 0.4 + 0.4 * Math.sin(g.frame * 0.05 + star.phase);
           ctx.globalAlpha = starAlpha * twinkle;
           ctx.fillStyle = "#ffffff";
-          ctx.shadowBlur = 0;
           ctx.fillRect(star.x, star.y, 1.5, 1.5);
         }
         ctx.globalAlpha = 1;

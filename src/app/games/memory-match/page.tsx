@@ -7,6 +7,9 @@ import { createMemory, flipCard, checkMatch } from "@/games/memory-match/logic";
 import { MemoryState, GridSize } from "@/games/memory-match/types";
 import { getHighScore, setHighScore } from "@/lib/scores";
 import PixelButton from "@/components/PixelButton";
+import { createMemoryAudio } from "@/games/memory-match/audio";
+import type { MemoryAudio } from "@/games/memory-match/audio";
+import MuteButton from "@/components/MuteButton";
 
 const GAME_KEY = "memory-match";
 
@@ -16,10 +19,31 @@ export default function MemoryMatchPage() {
   const [highScore, setHigh] = useState(0);
   const [timer, setTimer] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const audioRef = useRef<MemoryAudio | null>(null);
+  const [muted, setMuted] = useState(() =>
+    typeof window !== "undefined" && localStorage.getItem("memory-sound-muted") === "1"
+  );
 
   useEffect(() => {
     setHigh(getHighScore(GAME_KEY));
   }, []);
+
+  // Lazy-init audio on first interaction
+  useEffect(() => {
+    const init = () => {
+      if (!audioRef.current) {
+        audioRef.current = createMemoryAudio();
+        audioRef.current.setMuted(muted);
+      }
+    };
+    window.addEventListener("pointerdown", init, { once: true });
+    return () => window.removeEventListener("pointerdown", init);
+  }, [muted]);
+
+  useEffect(() => {
+    audioRef.current?.setMuted(muted);
+    localStorage.setItem("memory-sound-muted", muted ? "1" : "0");
+  }, [muted]);
 
   // Timer
   useEffect(() => {
@@ -44,7 +68,21 @@ export default function MemoryMatchPage() {
   useEffect(() => {
     if (state.processing && state.flipped.length === 2) {
       const timeout = setTimeout(() => {
-        setState((prev) => checkMatch(prev));
+        setState((prev) => {
+          const next = checkMatch(prev);
+          if (next.matched > prev.matched) {
+            if (next.completed) {
+              audioRef.current?.playWin();
+            } else if (next.combo > 1) {
+              audioRef.current?.playCombo(next.combo);
+            } else {
+              audioRef.current?.playMatch();
+            }
+          } else {
+            audioRef.current?.playNoMatch();
+          }
+          return next;
+        });
       }, 600);
       return () => clearTimeout(timeout);
     }
@@ -61,7 +99,11 @@ export default function MemoryMatchPage() {
   }, [state.completed, state.score, highScore]);
 
   const handleCardClick = useCallback((index: number) => {
-    setState((prev) => flipCard(prev, index));
+    setState((prev) => {
+      const next = flipCard(prev, index);
+      if (next !== prev) audioRef.current?.playFlip();
+      return next;
+    });
   }, []);
 
   const handleNewGame = useCallback(() => {
@@ -91,6 +133,7 @@ export default function MemoryMatchPage() {
       highScore={highScore}
       timer={timer}
       onNewGame={handleNewGame}
+      actions={<MuteButton muted={muted} onToggle={() => setMuted(m => !m)} color="yellow" />}
       controls={
         <div className="flex items-center gap-2">
           <PixelButton

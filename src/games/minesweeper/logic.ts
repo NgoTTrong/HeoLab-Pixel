@@ -124,6 +124,7 @@ export function reveal(
 ): MinesweeperState {
   if (state.gameState !== "playing") return state;
 
+  revealCounter = 0;
   const newBoard = deepCopyBoard(state.board);
   let newState = { ...state, board: newBoard };
 
@@ -172,6 +173,8 @@ export function chord(
 
   const cell = state.board[row][col];
   if (!cell.isRevealed || cell.isMine || cell.adjacentMines === 0) return state;
+
+  revealCounter = 0;
 
   // Count adjacent flags
   let flagCount = 0;

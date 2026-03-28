@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import GameLayout from "@/components/GameLayout";
+import PixelButton from "@/components/PixelButton";
 import Grid from "@/games/2048/Grid";
 import { createGame, move, Direction } from "@/games/2048/logic";
 import { GameState2048 } from "@/games/2048/types";
@@ -119,26 +120,50 @@ export default function Game2048Page() {
       }
     >
       <div className="flex flex-col items-center gap-4">
-        {/* Won overlay */}
+        <Grid grid={state.grid} />
+
+        {/* Win overlay */}
         {showWon && !state.gameOver && (
-          <div className="text-center pixel-fade-in">
-            <p className="text-[0.6rem] neon-text neon-text-green mb-1">
-              DRAGON EVOLVED!
-            </p>
-            <p className="text-[0.5rem] text-gray-400">KEEP GOING?</p>
+          <div className="fixed inset-0 z-40 flex items-center justify-center pointer-events-none animate-[overlayIn_0.5s_ease-out]">
+            <div className="absolute inset-0 bg-dark-bg/30 backdrop-blur-sm" />
+            <div className="relative flex flex-col items-center gap-4 pointer-events-auto">
+              <div className="text-5xl animate-[floatUp_1s_ease-out_infinite_alternate]">
+                🐉
+              </div>
+              <h2 className="text-lg sm:text-xl neon-text-green animate-[victoryGlow_1.5s_ease-in-out_infinite]">
+                DRAGON EVOLVED!
+              </h2>
+              <p className="text-[0.6rem] text-neon-green/70">SCORE: {state.score}</p>
+              <div className="flex gap-3">
+                <PixelButton color="green" onClick={() => setShowWon(false)}>
+                  KEEP GOING
+                </PixelButton>
+                <PixelButton color="pink" onClick={handleNewGame}>
+                  NEW GAME
+                </PixelButton>
+              </div>
+            </div>
           </div>
         )}
 
         {/* Game over overlay */}
         {state.gameOver && (
-          <div className="text-center pixel-fade-in">
-            <p className="text-[0.6rem] neon-text neon-text-pink">
-              NO MORE MOVES!
-            </p>
+          <div className="fixed inset-0 z-40 flex items-center justify-center pointer-events-none animate-[overlayIn_0.5s_ease-out]">
+            <div className="absolute inset-0 bg-dark-bg/30 backdrop-blur-sm" />
+            <div className="relative flex flex-col items-center gap-4 pointer-events-auto">
+              <div className="text-5xl animate-[floatUp_1.5s_ease-in-out_infinite_alternate]">
+                💀
+              </div>
+              <h2 className="text-lg sm:text-xl neon-text-pink animate-[defeatFlash_1s_ease-in-out_infinite]">
+                NO MORE MOVES!
+              </h2>
+              <p className="text-[0.6rem] text-neon-pink/70">SCORE: {state.score}</p>
+              <PixelButton color="pink" onClick={handleNewGame}>
+                TRY AGAIN
+              </PixelButton>
+            </div>
           </div>
         )}
-
-        <Grid grid={state.grid} />
       </div>
     </GameLayout>
   );

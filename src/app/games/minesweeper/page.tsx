@@ -183,7 +183,7 @@ export default function MinesweeperPage() {
         {/* Win overlay */}
         {state.gameState === "won" && (
           <div className="fixed inset-0 z-40 flex items-center justify-center pointer-events-none animate-[overlayIn_0.5s_ease-out]">
-            <div className="absolute inset-0 bg-neon-green/5" />
+            <div className="absolute inset-0 bg-dark-bg/30 backdrop-blur-sm" />
             <div className="relative flex flex-col items-center gap-4 pointer-events-auto">
               <div className="text-5xl animate-[floatUp_1s_ease-out_infinite_alternate]">
                 ⚔️
@@ -204,7 +204,7 @@ export default function MinesweeperPage() {
         {/* Lose overlay */}
         {state.gameState === "lost" && (
           <div className="fixed inset-0 z-40 flex items-center justify-center pointer-events-none animate-[overlayIn_0.5s_ease-out]">
-            <div className="absolute inset-0 bg-red-900/20" />
+            <div className="absolute inset-0 bg-dark-bg/30 backdrop-blur-sm" />
             <div className="relative flex flex-col items-center gap-4 pointer-events-auto">
               <div className="text-5xl animate-[floatUp_1.5s_ease-in-out_infinite_alternate]">
                 💀

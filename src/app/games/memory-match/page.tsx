@@ -128,15 +128,6 @@ export default function MemoryMatchPage() {
           </span>
         </div>
 
-        {/* Win message */}
-        {state.completed && (
-          <div className="text-center pixel-fade-in">
-            <p className="text-[0.6rem] neon-text neon-text-yellow mb-1">
-              BESTIARY COMPLETE!
-            </p>
-          </div>
-        )}
-
         {/* Grid */}
         <MatchGrid state={state} onCardClick={handleCardClick} />
 
@@ -145,6 +136,27 @@ export default function MemoryMatchPage() {
           <p className="text-[0.5rem] text-gray-500">
             MATCH ALL CREATURE PAIRS
           </p>
+        )}
+
+        {/* Win overlay */}
+        {state.completed && (
+          <div className="fixed inset-0 z-40 flex items-center justify-center pointer-events-none animate-[overlayIn_0.5s_ease-out]">
+            <div className="absolute inset-0 bg-dark-bg/30 backdrop-blur-sm" />
+            <div className="relative flex flex-col items-center gap-4 pointer-events-auto">
+              <div className="text-5xl animate-[floatUp_1s_ease-out_infinite_alternate]">
+                🏆
+              </div>
+              <h2 className="text-lg sm:text-xl neon-text-yellow animate-[victoryGlowYellow_1.5s_ease-in-out_infinite]">
+                BESTIARY COMPLETE!
+              </h2>
+              <p className="text-[0.6rem] text-neon-yellow/70">
+                SCORE: {state.score} &nbsp;|&nbsp; MOVES: {state.moves}
+              </p>
+              <PixelButton color="yellow" onClick={handleNewGame}>
+                PLAY AGAIN
+              </PixelButton>
+            </div>
+          </div>
         )}
       </div>
     </GameLayout>

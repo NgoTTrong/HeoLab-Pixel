@@ -182,11 +182,6 @@ export default function SudokuPage() {
           )}
         </div>
 
-        {/* Win message */}
-        {state.completed && (
-          <p className="text-xs neon-text-blue animate-pulse">RUNES DECODED!</p>
-        )}
-
         {/* Grid */}
         <div className="overflow-auto max-w-full">
           <SudokuGrid state={state} onSelect={handleSelect} />
@@ -224,6 +219,27 @@ export default function SudokuPage() {
           <p className="text-[0.5rem] text-gray-500">
             {notesMode ? "NOTES MODE - CLICK NUMBERS TO PENCIL MARK" : "SELECT A CELL, THEN PRESS A NUMBER"}
           </p>
+        )}
+
+        {/* Win overlay */}
+        {state.completed && (
+          <div className="fixed inset-0 z-40 flex items-center justify-center pointer-events-none animate-[overlayIn_0.5s_ease-out]">
+            <div className="absolute inset-0 bg-dark-bg/30 backdrop-blur-sm" />
+            <div className="relative flex flex-col items-center gap-4 pointer-events-auto">
+              <div className="text-5xl animate-[floatUp_1s_ease-out_infinite_alternate]">
+                ✨
+              </div>
+              <h2 className="text-lg sm:text-xl neon-text-blue animate-[victoryGlowBlue_1.5s_ease-in-out_infinite]">
+                RUNES DECODED!
+              </h2>
+              <p className="text-[0.6rem] text-neon-blue/70">
+                TIME: {Math.floor(timer / 60)}:{String(timer % 60).padStart(2, "0")}
+              </p>
+              <PixelButton color="blue" onClick={() => handleNewGame()}>
+                PLAY AGAIN
+              </PixelButton>
+            </div>
+          </div>
         )}
       </div>
     </GameLayout>

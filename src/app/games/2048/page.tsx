@@ -3,10 +3,11 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import GameLayout from "@/components/GameLayout";
 import PixelButton from "@/components/PixelButton";
-import Grid from "@/games/2048/Grid";
+import Grid, { GridHandle } from "@/games/2048/Grid";
 import { createGame, move, Direction } from "@/games/2048/logic";
 import { GameState2048 } from "@/games/2048/types";
 import { getHighScore, setHighScore } from "@/lib/scores";
+import { getMilestone } from "@/games/2048/constants";
 
 const GAME_KEY = "2048";
 
@@ -14,7 +15,9 @@ export default function Game2048Page() {
   const [state, setState] = useState<GameState2048 | null>(null);
   const [highScore, setHigh] = useState(0);
   const [showWon, setShowWon] = useState(false);
+  const [bonusScore, setBonusScore] = useState(0);
   const touchRef = useRef<{ x: number; y: number } | null>(null);
+  const gridRef = useRef<GridHandle>(null);
 
   // Init on client only — avoids SSR/CSR hydration mismatch from Math.random()
   useEffect(() => {
@@ -23,18 +26,43 @@ export default function Game2048Page() {
   }, []);
 
   useEffect(() => {
-    if (!state) return;
-    if (state.score > highScore) {
-      setHigh(state.score);
-      setHighScore(GAME_KEY, state.score);
-    }
-  }, [state?.score, highScore]);
-
-  useEffect(() => {
     if (state?.won && !showWon) {
       setShowWon(true);
     }
   }, [state?.won, showWon]);
+
+  // Detect milestones and chain combos after each move
+  useEffect(() => {
+    if (!state) return;
+    const mergedTiles = state.grid
+      .flat()
+      .filter((t): t is NonNullable<typeof t> => t !== null && (t.isMerged ?? false));
+
+    // Trigger milestone effects
+    mergedTiles.forEach((tile) => {
+      const ms = getMilestone(tile.value);
+      if (ms) {
+        gridRef.current?.triggerMilestone(tile.value, tile.col, tile.row);
+      }
+    });
+
+    // Chain combo bonus
+    if (mergedTiles.length >= 2) {
+      const bonus =
+        mergedTiles.length >= 4 ? 300 : mergedTiles.length === 3 ? 150 : 50;
+      setBonusScore((prev) => prev + bonus);
+      gridRef.current?.triggerChain(mergedTiles.length);
+    }
+  }, [state]);
+
+  const displayScore = (state?.score ?? 0) + bonusScore;
+
+  useEffect(() => {
+    if (displayScore > highScore) {
+      setHigh(displayScore);
+      setHighScore(GAME_KEY, displayScore);
+    }
+  }, [displayScore, highScore]);
 
   const handleMove = useCallback(
     (dir: Direction) => {
@@ -46,6 +74,7 @@ export default function Game2048Page() {
   const handleNewGame = useCallback(() => {
     setState(createGame());
     setShowWon(false);
+    setBonusScore(0);
   }, []);
 
   // Keyboard controls
@@ -113,7 +142,7 @@ export default function Game2048Page() {
     <GameLayout
       title="MONSTER 2048"
       color="pink"
-      score={state?.score ?? 0}
+      score={displayScore}
       highScore={highScore}
       onNewGame={handleNewGame}
       controls={
@@ -123,9 +152,8 @@ export default function Game2048Page() {
       }
     >
       <div className="flex flex-col items-center gap-4">
-        {state && <Grid grid={state.grid} />
+        {state && <Grid ref={gridRef} grid={state.grid} />}
 
-        }
         {/* Win overlay */}
         {showWon && !state?.gameOver && (
           <div className="fixed inset-0 z-40 flex items-center justify-center pointer-events-none animate-[overlayIn_0.5s_ease-out]">
@@ -137,7 +165,7 @@ export default function Game2048Page() {
               <h2 className="text-lg sm:text-xl neon-text-green animate-[victoryGlow_1.5s_ease-in-out_infinite]">
                 DRAGON EVOLVED!
               </h2>
-              <p className="text-[0.6rem] text-neon-green/70">SCORE: {state?.score}</p>
+              <p className="text-[0.6rem] text-neon-green/70">SCORE: {displayScore}</p>
               <div className="flex gap-3">
                 <PixelButton color="green" onClick={() => setShowWon(false)}>
                   KEEP GOING
@@ -161,7 +189,7 @@ export default function Game2048Page() {
               <h2 className="text-lg sm:text-xl neon-text-pink animate-[defeatFlash_1s_ease-in-out_infinite]">
                 NO MORE MOVES!
               </h2>
-              <p className="text-[0.6rem] text-neon-pink/70">SCORE: {state.score}</p>
+              <p className="text-[0.6rem] text-neon-pink/70">SCORE: {displayScore}</p>
               <PixelButton color="pink" onClick={handleNewGame}>
                 TRY AGAIN
               </PixelButton>

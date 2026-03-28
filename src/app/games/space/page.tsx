@@ -41,7 +41,21 @@ interface Bullet { x: number; y: number; }
 interface AlienBullet { x: number; y: number; }
 interface HomingBullet { x: number; y: number; angle: number; }
 interface DroppedPowerUp { x: number; y: number; type: PowerUpType; }
-interface Boss { x: number; y: number; hp: number; maxHp: number; vx: number; phase: number; shieldActive?: boolean; }
+interface Boss {
+  x: number; y: number;
+  hp: number; maxHp: number;
+  vx: number;
+  phase: number;
+  type: 1 | 2 | 3;         // 1=Spreader, 2=Summoner, 3=Sniper
+  // Boss 2 (Summoner)
+  shieldActive: boolean;
+  shieldTimer: number;      // frames remaining; set to -1 once used
+  // Boss 3 (Sniper)
+  chargeTimer: number;      // counts up; charge fires at 300
+  chargeWarning: boolean;   // flashing warning before charge shot
+  chargeWarningTimer: number;
+  stepTimer: number;        // counts up; teleport-step every 45 frames
+}
 
 // Per-wave alien roster — different emoji sets as waves progress
 const WAVE_ALIENS = [
@@ -184,7 +198,18 @@ export default function SpacePage() {
   }
 
   function spawnBoss(wave: number): Boss {
-    return { x: W / 2 - 40, y: 60, hp: 20 + wave * 5, maxHp: 20 + wave * 5, vx: 2 + wave * 0.3, phase: 1 };
+    const bossIndex = ((Math.floor(wave / BOSS_EVERY_N_WAVES) - 1) % 3 + 1) as 1 | 2 | 3;
+    const hp = 20 + wave * 5;
+    return {
+      x: W / 2 - 40, y: 60,
+      hp, maxHp: hp,
+      vx: 2 + wave * 0.3,
+      phase: 1,
+      type: bossIndex,
+      shieldActive: false, shieldTimer: 0,
+      chargeTimer: 0, chargeWarning: false, chargeWarningTimer: 0,
+      stepTimer: 0,
+    };
   }
 
   const startGame = useCallback(() => {
@@ -374,18 +399,111 @@ export default function SpacePage() {
 
       // ── BOSS MOVEMENT ──────────────────────────────────
       if (g.boss) {
-        g.boss.x += g.boss.vx;
-        if (g.boss.x <= 0 || g.boss.x + 80 >= W) g.boss.vx *= -1;
-        if (g.frame % 28 === 0) {
-          const phase = g.boss.hp / g.boss.maxHp;
-          const shots = phase < 0.3 ? 4 : phase < 0.6 ? 3 : 2;
-          for (let i = 0; i < shots; i++) {
-            const spread = shots > 2 ? (i - (shots - 1) / 2) * 16 : (i - 0.5) * 20;
-            g.alienBullets.push({ x: g.boss.x + 40 + spread, y: g.boss.y + 50 });
-          }
-        }
         const hpRatio = g.boss.hp / g.boss.maxHp;
         g.boss.phase = hpRatio < 0.3 ? 3 : hpRatio < 0.6 ? 2 : 1;
+
+        if (g.boss.type === 1) {
+          // ── Boss 1: The Spreader ──
+          g.boss.x += g.boss.vx * (g.boss.phase === 2 ? 1.5 : g.boss.phase === 3 ? 2 : 1);
+          if (g.boss.x <= 0 || g.boss.x + 80 >= W) g.boss.vx *= -1;
+
+          if (g.frame % 28 === 0) {
+            const shots = g.boss.phase === 3 ? 5 : g.boss.phase === 2 ? 4 : 2;
+            for (let i = 0; i < shots; i++) {
+              const spread = (i - (shots - 1) / 2) * 18;
+              g.alienBullets.push({ x: g.boss.x + 40 + spread, y: g.boss.y + 50 });
+            }
+            if (g.boss.phase === 3 && g.frame % 56 === 0) {
+              g.alienBullets.push({ x: g.boss.x + 40, y: g.boss.y + 50 });
+              g.alienBullets.push({ x: g.boss.x + 40, y: g.boss.y + 50 });
+            }
+          }
+
+        } else if (g.boss.type === 2) {
+          // ── Boss 2: The Summoner ──
+          g.boss.x += g.boss.vx;
+          if (g.boss.x <= 0 || g.boss.x + 80 >= W) g.boss.vx *= -1;
+          g.boss.y = 70 + Math.sin(g.frame * 0.04) * 30;
+
+          // Shield phase at 50% HP (once)
+          if (!g.boss.shieldActive && g.boss.shieldTimer === 0 && hpRatio < 0.5) {
+            g.boss.shieldActive = true;
+            g.boss.shieldTimer = 180;
+          }
+          if (g.boss.shieldActive) {
+            g.boss.shieldTimer--;
+            if (g.boss.shieldTimer <= 0) {
+              g.boss.shieldActive = false;
+              g.boss.shieldTimer = -1;
+            }
+          }
+
+          // Summon minions every 180 frames
+          if (g.frame % 180 === 0 && g.frame > 0) {
+            const sx = (W - 5 * (ALIEN_SIZE + ALIEN_GAP)) / 2;
+            for (let c = 0; c < 5; c++) {
+              const mx = sx + c * (ALIEN_SIZE + ALIEN_GAP);
+              g.aliens.push({
+                col: c, row: 5,
+                x: mx, y: 150,
+                baseX: mx,
+                alive: true,
+                emoji: "👻",
+                hp: 1, maxHp: 1,
+                behavior: "normal",
+                hasShield: false,
+                isDiving: false,
+              });
+            }
+          }
+
+          // Shoot toward ship every 90 frames (skip when shielded)
+          if (!g.boss.shieldActive && g.frame % 90 === 0) {
+            const cx = g.boss.x + 40;
+            g.alienBullets.push({ x: cx - 16, y: g.boss.y + 50 });
+            g.alienBullets.push({ x: cx + 16, y: g.boss.y + 50 });
+          }
+
+        } else if (g.boss.type === 3) {
+          // ── Boss 3: The Sniper ──
+          g.boss.y = 70;
+
+          // Step movement: teleport 80px left or right every 45 frames
+          g.boss.stepTimer++;
+          if (g.boss.stepTimer >= 45) {
+            g.boss.stepTimer = 0;
+            const dir = Math.random() > 0.5 ? 1 : -1;
+            g.boss.x = Math.max(0, Math.min(W - 80, g.boss.x + dir * 80));
+          }
+
+          // Charge shot every 300 frames
+          g.boss.chargeTimer++;
+          if (g.boss.chargeTimer >= 300) {
+            if (!g.boss.chargeWarning) {
+              g.boss.chargeWarning = true;
+              g.boss.chargeWarningTimer = 90;
+            }
+            if (g.boss.chargeWarning) {
+              g.boss.chargeWarningTimer--;
+              if (g.boss.chargeWarningTimer <= 0) {
+                // Fire 8-way burst (spread positions around boss)
+                for (let i = 0; i < 8; i++) {
+                  const angle = (i / 8) * Math.PI * 2;
+                  const bx = g.boss.x + 40 + Math.cos(angle) * 30;
+                  const by = g.boss.y + 25 + Math.sin(angle) * 20;
+                  g.alienBullets.push({ x: bx, y: by });
+                }
+                g.boss.chargeTimer = 0;
+                g.boss.chargeWarning = false;
+              }
+            }
+          }
+
+          // Regular targeted shot every 35 frames (not during charge warning)
+          if (!g.boss.chargeWarning && g.frame % 35 === 0) {
+            g.alienBullets.push({ x: g.shipX + SHIP_W / 2, y: g.boss.y + 50 });
+          }
+        }
       }
 
       // ── ALIEN SHOOTING ─────────────────────────────────
@@ -448,6 +566,9 @@ export default function SpacePage() {
         // Bullet-boss
         if (g.boss) {
           if (bullet.x > g.boss.x && bullet.x < g.boss.x + 80 && bullet.y > g.boss.y && bullet.y < g.boss.y + 50) {
+            if (g.boss.shieldActive) {
+              bullet.y = -999;
+            } else {
             g.boss.hp -= 1;
             bullet.y = -999;
             g.score += 5 * g.comboMultiplier;
@@ -464,6 +585,7 @@ export default function SpacePage() {
               setUiWave(g.wave);
               spawnAliens(g.wave);
             }
+            } // end !shieldActive
           }
         }
       }
@@ -700,29 +822,58 @@ export default function SpacePage() {
         }
       }
 
-      // ── Draw boss (animated + phase colors) ───────────
+      // ── Draw boss (per-type rendering) ────────────────
       if (g.boss) {
-        const bossColor = g.boss.phase === 3 ? "#ff2d95" : g.boss.phase === 2 ? "#ffe600" : "#a855f7";
-        const bossBob = Math.sin(g.frame * 0.08) * 5;
-        const bossScale = 60 + Math.sin(g.frame * 0.1) * 4; // pulsing size
+        const bossEmoji  = g.boss.type === 2 ? "🤖" : g.boss.type === 3 ? "💀" : "👾";
+        const bossColor  = g.boss.phase === 3 ? "#ff2d95" : g.boss.phase === 2 ? "#ffe600" : "#a855f7";
+        const bossBob    = Math.sin(g.frame * 0.08) * 5;
+        const bossScale  = 60 + Math.sin(g.frame * 0.1) * 4;
+
+        // Charge warning for Boss 3
+        if (g.boss.chargeWarning) {
+          const warnAlpha = 0.4 + Math.sin(g.frame * 0.4) * 0.4;
+          ctx.fillStyle = `rgba(255,45,149,${warnAlpha})`;
+          ctx.fillRect(0, 0, W, H * 0.25);
+          ctx.strokeStyle = `rgba(255,45,149,${warnAlpha})`;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(g.shipX + SHIP_W / 2, g.boss.y + 50);
+          ctx.lineTo(g.shipX + SHIP_W / 2, SHIP_Y);
+          ctx.stroke();
+        }
+
+        // Boss 2 shield aura
+        if (g.boss.shieldActive) {
+          ctx.beginPath();
+          ctx.arc(g.boss.x + 40, g.boss.y + 30 + bossBob, 52, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(0,212,255,${0.6 + Math.sin(g.frame * 0.2) * 0.3})`;
+          ctx.lineWidth = 3;
+          ctx.shadowBlur = 20; ctx.shadowColor = "#00d4ff";
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+        }
+
+        // Boss emoji
         ctx.shadowBlur = 20 + Math.sin(g.frame * 0.15) * 8;
         ctx.shadowColor = bossColor;
         ctx.font = `${bossScale}px serif`;
-        ctx.fillText("👾", g.boss.x, g.boss.y + bossBob);
+        ctx.fillText(bossEmoji, g.boss.x, g.boss.y + bossBob);
         ctx.shadowBlur = 0;
+
         // HP bar
         const hpW = 140;
         const hpRatio = g.boss.hp / g.boss.maxHp;
         ctx.fillStyle = "#222";
         ctx.fillRect(W / 2 - hpW / 2, 18, hpW, 10);
-        ctx.fillStyle = bossColor;
-        ctx.shadowBlur = 6; ctx.shadowColor = bossColor;
+        ctx.fillStyle = g.boss.shieldActive ? "#00d4ff" : bossColor;
+        ctx.shadowBlur = 6; ctx.shadowColor = g.boss.shieldActive ? "#00d4ff" : bossColor;
         ctx.fillRect(W / 2 - hpW / 2, 18, hpW * hpRatio, 10);
         ctx.shadowBlur = 0;
+        const bossName = g.boss.type === 2 ? "THE SUMMONER" : g.boss.type === 3 ? "THE SNIPER" : "THE SPREADER";
         ctx.fillStyle = "#fff";
         ctx.font = "10px monospace";
         ctx.textAlign = "center";
-        ctx.fillText(`BOSS  HP ${g.boss.hp}/${g.boss.maxHp}`, W / 2, 12);
+        ctx.fillText(`${bossName}  HP ${g.boss.hp}/${g.boss.maxHp}`, W / 2, 12);
         ctx.textAlign = "left";
       }
 

@@ -22,13 +22,19 @@ const SHIP_H = 28;
 
 type GameStatus = "idle" | "playing" | "dead" | "bossWave";
 
+type AlienBehavior = "normal" | "zigzag" | "kamikaze" | "shield";
+
 interface Alien {
   col: number; row: number;
   x: number; y: number;
+  baseX: number;      // original X for zigzag oscillation
   alive: boolean;
   emoji: string;
   hp: number;
-  maxHp: number;   // >1 = tank alien
+  maxHp: number;
+  behavior: AlienBehavior;
+  hasShield: boolean; // shield type: shield still active
+  isDiving: boolean;  // kamikaze: currently diving toward ship
 }
 
 interface Bullet { x: number; y: number; }
@@ -124,25 +130,47 @@ export default function SpacePage() {
 
   function spawnAliens(wave: number) {
     const g = gameRef.current;
-    const roster = WAVE_ALIENS[Math.min(Math.floor((wave - 1) / 2), WAVE_ALIENS.length - 1)];
     const startX = (W - (COLS * (ALIEN_SIZE + ALIEN_GAP))) / 2;
     g.aliens = [];
+
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
-        // Top row becomes tanks after wave 3
         const isTank = wave >= 3 && r === 0;
-        const emoji = isTank ? "💀" : roster[r % roster.length];
+
+        let behavior: AlienBehavior = "normal";
+        let emoji = "👾";
+        let hp = 1;
+
+        if (isTank) {
+          emoji = "💀"; hp = 2;
+        } else if (wave >= 5 && r === 1) {
+          behavior = "shield"; emoji = "🤖"; hp = 2;
+        } else if (wave >= 7 && r === ROWS - 1) {
+          behavior = "kamikaze"; emoji = "🛸";
+        } else if (wave >= 3 && r === ROWS - 1) {
+          behavior = "zigzag"; emoji = "👽";
+        } else if (wave >= 5 && r === ROWS - 2) {
+          behavior = "zigzag"; emoji = "👽";
+        } else {
+          const roster = WAVE_ALIENS[Math.min(Math.floor((wave - 1) / 2), WAVE_ALIENS.length - 1)];
+          emoji = roster[r % roster.length];
+        }
+
+        const x = startX + c * (ALIEN_SIZE + ALIEN_GAP);
         g.aliens.push({
           col: c, row: r,
-          x: startX + c * (ALIEN_SIZE + ALIEN_GAP),
-          y: 80 + r * (ALIEN_SIZE + ALIEN_GAP),
+          x, y: 80 + r * (ALIEN_SIZE + ALIEN_GAP),
+          baseX: x,
           alive: true,
           emoji,
-          hp: isTank ? 2 : 1,
-          maxHp: isTank ? 2 : 1,
+          hp, maxHp: hp,
+          behavior,
+          hasShield: behavior === "shield",
+          isDiving: false,
         });
       }
     }
+
     g.alienMoveInterval = Math.max(12, 40 - wave * 2);
     g.pattern = WAVE_PATTERNS[(wave - 1) % WAVE_PATTERNS.length];
     g.alienDx = 1;
@@ -263,6 +291,38 @@ export default function SpacePage() {
         }
       }
 
+      // Per-alien individual behaviors
+      for (const alien of g.aliens) {
+        if (!alien.alive) continue;
+
+        if (alien.behavior === "zigzag") {
+          // Override X with sine oscillation around baseX
+          alien.x = alien.baseX + Math.sin(g.frame * 0.07 + alien.col * 1.1) * 20;
+        }
+
+        if (alien.behavior === "kamikaze" && !alien.isDiving) {
+          // Trigger dive when fewer than COLS aliens alive or alien gets deep enough
+          const liveCount = g.aliens.filter((a) => a.alive).length;
+          if (liveCount < COLS || alien.y > H * 0.52) {
+            alien.isDiving = true;
+          }
+        }
+
+        if (alien.isDiving) {
+          // Dive toward ship X
+          const targetX = g.shipX + SHIP_W / 2 - ALIEN_SIZE / 2;
+          alien.x += (targetX - alien.x) * 0.06;
+          alien.y += 3.5;
+        }
+      }
+
+      // Update baseX for non-zigzag aliens (so zigzag still follows formation X drift)
+      for (const alien of g.aliens) {
+        if (alien.alive && alien.behavior !== "zigzag") {
+          alien.baseX = alien.x;
+        }
+      }
+
       // ── BOSS MOVEMENT ──────────────────────────────────
       if (g.boss) {
         g.boss.x += g.boss.vx;
@@ -297,6 +357,14 @@ export default function SpacePage() {
             bullet.x > alien.x && bullet.x < alien.x + ALIEN_SIZE &&
             bullet.y > alien.y && bullet.y < alien.y + ALIEN_SIZE
           ) {
+            // Shield absorbs first hit
+            if (alien.hasShield) {
+              alien.hasShield = false;
+              bullet.y = -999;
+              g.score += 5 * g.comboMultiplier;
+              setUiScore(g.score);
+              continue; // shield broken, alien survives
+            }
             alien.hp--;
             bullet.y = -999;
             if (alien.hp <= 0) {
@@ -425,7 +493,7 @@ export default function SpacePage() {
 
       // ── ALIEN REACHES BOTTOM ──────────────────────────
       for (const alien of liveAliens) {
-        if (alien.y + ALIEN_SIZE > SHIP_Y) {
+        if (alien.y + ALIEN_SIZE > SHIP_Y || (alien.isDiving && alien.y + ALIEN_SIZE > SHIP_Y - 10)) {
           g.status = "dead";
           const hs = getHighScore(GAME_KEY);
           if (g.score > hs) setHighScore(GAME_KEY, g.score);
@@ -474,6 +542,17 @@ export default function SpacePage() {
         const bobY = Math.sin(g.frame * 0.06 + alien.col * 0.4 + alien.row * 0.8) * 3;
         const isTank = alien.maxHp > 1;
 
+        // Dive trail for kamikaze
+        if (alien.isDiving) {
+          ctx.shadowBlur = 0;
+          for (let t = 1; t <= 4; t++) {
+            ctx.globalAlpha = 0.15 * (5 - t) / 4;
+            ctx.font = `${ALIEN_SIZE * 0.7}px serif`;
+            ctx.fillText(alien.emoji, alien.x + 4, alien.y - t * 8 + bobY);
+          }
+          ctx.globalAlpha = 1;
+        }
+
         if (isTank) {
           // Tank: strong glow + red tint when damaged
           const damaged = alien.hp < alien.maxHp;
@@ -493,6 +572,17 @@ export default function SpacePage() {
         ctx.font = `${ALIEN_SIZE}px serif`;
         ctx.fillText(alien.emoji, alien.x, alien.y + bobY);
         ctx.shadowBlur = 0;
+
+        // Shield visual
+        if (alien.hasShield) {
+          ctx.beginPath();
+          ctx.arc(alien.x + ALIEN_SIZE / 2, alien.y + ALIEN_SIZE / 2 + bobY, ALIEN_SIZE / 2 + 4, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(0,212,255,${0.5 + Math.sin(g.frame * 0.1) * 0.2})`;
+          ctx.lineWidth = 2;
+          ctx.shadowBlur = 10; ctx.shadowColor = "#00d4ff";
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+        }
       }
 
       // ── Draw boss (animated + phase colors) ───────────

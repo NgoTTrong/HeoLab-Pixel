@@ -181,6 +181,13 @@ export default function RunnerPage() {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d")!;
+
+    // Render at native device resolution so everything is crisp on HiDPI screens
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    ctx.scale(dpr, dpr);
+
     const char = CHARACTERS[selectedChar];
 
     // Init clouds once
@@ -536,10 +543,8 @@ export default function RunnerPage() {
       >
         <canvas
           ref={canvasRef}
-          width={W}
-          height={H}
           className="border border-neon-green/20 rounded-sm w-full"
-          style={{ touchAction: "none", maxWidth: `${W}px` }}
+          style={{ touchAction: "none", maxWidth: `${W}px`, aspectRatio: `${W}/${H}` }}
         />
 
         {/* Character select overlay */}

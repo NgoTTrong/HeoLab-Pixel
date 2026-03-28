@@ -227,6 +227,54 @@ export default function HomePage() {
     initPhysics();
     window.addEventListener("resize", initPhysics);
 
+    // ── Space objects (meteors + ships) ───────────────────
+    const { width: W0, height: H0 } = hero.getBoundingClientRect();
+
+    const meteors: Meteor[] = Array.from({ length: 5 }, () => {
+      const el = document.createElement("div");
+      el.style.cssText = "position:absolute;font-size:1.25rem;pointer-events:none;opacity:0.55;z-index:1;will-change:transform;user-select:none;";
+      el.textContent = "☄️";
+      hero.appendChild(el);
+      return mkMeteorState(W0, H0, el);
+    });
+
+    const ships: Ship[] = SHIP_CONFIGS.map((cfg, i) => {
+      const el = document.createElement("div");
+      el.style.cssText = "position:absolute;font-size:1rem;pointer-events:none;opacity:0.55;z-index:2;will-change:transform;user-select:none;";
+      el.textContent = "🚀";
+      hero.appendChild(el);
+      return {
+        cx: cfg.cx, cy: cfg.cy, rx: cfg.rx, ry: cfg.ry,
+        angle: cfg.a0, speed: cfg.speed, el,
+        fireIn: 80 + i * 40 + Math.floor(Math.random() * 60),
+      };
+    });
+
+    const lasers: Laser[] = [];
+
+    const spawnLaser = (sx: number, sy: number, tdx: number, tdy: number) => {
+      if (lasers.length >= 6) return;
+      const d = Math.hypot(tdx, tdy) || 1;
+      const spd = 4;
+      const vx = (tdx / d) * spd;
+      const vy = (tdy / d) * spd;
+      const color = LASER_COLORS[Math.floor(Math.random() * LASER_COLORS.length)];
+      const rot   = Math.atan2(vy, vx) * (180 / Math.PI);
+      const el    = document.createElement("div");
+      el.style.cssText = [
+        "position:absolute",
+        `left:${sx}px`, `top:${sy}px`,
+        "width:22px", "height:2px",
+        `background:${color}`,
+        `box-shadow:0 0 6px ${color}`,
+        "pointer-events:none", "z-index:3",
+        `transform:rotate(${rot}deg)`,
+        "transform-origin:left center",
+      ].join(";");
+      hero.appendChild(el);
+      lasers.push({ x: sx, y: sy, vx, vy, el, ttl: 90 });
+    };
+
     // ── Particle spawn ────────────────────────────────────
     const spawnParticle = (cx: number, cy: number) => {
       if (particleCountRef.current >= 25) return;
@@ -366,6 +414,9 @@ export default function HomePage() {
       hero.removeEventListener("mouseleave", handleMouseLeave);
       liveParticlesRef.current.forEach((el) => el.remove());
       liveParticlesRef.current = [];
+      meteors.forEach((m) => m.el.remove());
+      ships.forEach((s) => s.el.remove());
+      lasers.forEach((l) => l.el.remove());
     };
   }, []);
 

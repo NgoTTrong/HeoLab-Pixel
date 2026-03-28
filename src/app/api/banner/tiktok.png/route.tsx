@@ -9,6 +9,7 @@ const DARK_BG    = "#0a0a0a";
 const NEON_GREEN = "#39ff14";
 const NEON_PINK  = "#ff2d95";
 const NEON_BLUE  = "#00d4ff";
+const NEON_PINK_BG = "rgba(255,45,149,0.15)";
 const TEXT_COLOR = "#ffffff";
 const GAP_SM     = "14px";
 const GAP_MD     = "16px";
@@ -59,7 +60,7 @@ export async function GET() {
               display: "flex",
               alignItems: "center",
               gap: "8px",
-              background: "rgba(255,45,149,0.15)",
+              background: NEON_PINK_BG,
               border: `1px solid ${NEON_PINK}`,
               borderRadius: "999px",
               padding: "6px 18px",

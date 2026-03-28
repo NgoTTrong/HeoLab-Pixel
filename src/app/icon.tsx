@@ -3,7 +3,8 @@ import { ImageResponse } from "next/og";
 export const size = { width: 32, height: 32 };
 export const contentType = "image/png";
 
-const BG = "#0a0a0a";
+const BG    = "#0a0a0a";
+const GREEN = "#39ff14";
 
 export default function Icon() {
   return new ImageResponse(
@@ -16,12 +17,15 @@ export default function Icon() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          fontSize: 24,
+          fontFamily: "sans-serif",
+          fontSize: 14,
+          fontWeight: "bold",
+          color: GREEN,
         }}
       >
-        🕹️
+        {"</>"}
       </div>
     ),
-    { ...size, emoji: "noto" }
+    { ...size }
   );
 }

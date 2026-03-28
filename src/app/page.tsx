@@ -373,6 +373,18 @@ export default function HomePage() {
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(88,28,135,0.25)_0%,transparent_60%)]" />
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom-right,rgba(0,212,255,0.08)_0%,transparent_50%)]" />
 
+          {/* Planets — background, CSS-driven */}
+          <div className="hidden md:block absolute inset-0 pointer-events-none select-none">
+            <div
+              className="absolute text-[4rem] opacity-[0.10]"
+              style={{ top: "6%", right: "12%", animation: "planetDrift 55s ease-in-out infinite alternate" }}
+            >🪐</div>
+            <div
+              className="absolute text-[3rem] opacity-[0.10]"
+              style={{ bottom: "8%", left: "5%", animation: "planetDrift 70s ease-in-out 8s infinite alternate-reverse" }}
+            >🌍</div>
+          </div>
+
           {/* Floating emojis — desktop only, physics-driven */}
           <div className="hidden md:block absolute inset-0 pointer-events-none select-none">
             {floatingEmojis.map((item, i) => (

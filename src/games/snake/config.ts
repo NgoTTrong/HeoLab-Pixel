@@ -12,7 +12,7 @@ export interface PowerUpDef {
 export interface LevelDef {
   minScore: number;
   intervalMs: number;
-  color: string; // snake head/body color
+  color: string;
   label: string;
 }
 
@@ -35,7 +35,7 @@ export const POWER_UPS: PowerUpDef[] = [
     type: "scoreDouble",
     color: "#ffe600",
     borderColor: "#ffe600",
-    emoji: "×2",
+    emoji: "💰",      // was "×2" — text string caused layout overflow
     duration: null,
     scoreDoubleCount: 10,
   },
@@ -49,6 +49,12 @@ export const LEVELS: LevelDef[] = [
   { minScore: 35, intervalMs: 68,  color: "#ffe600", label: "LVL 5" },
 ];
 
-export const GRID_SIZE = 20; // 20×20 grid
-export const POWER_UP_SPAWN_CHANCE = 0.25; // 25% chance per food eaten
-export const POWER_UP_LIFETIME_MS = 6000; // power-up disappears after 6s
+export const GRID_SIZE = 20;
+export const POWER_UP_SPAWN_CHANCE = 0.25;
+export const POWER_UP_LIFETIME_MS = 6000;
+
+// Bomb obstacle constants
+export const BOMB_SCORE_THRESHOLD = 5;
+export const BOMB_SPAWN_CHANCE = 0.15;
+export const BOMB_LIFETIME_MS = 6000;
+export const BOMB_BLINK_MS = 4000; // start blinking at 4s

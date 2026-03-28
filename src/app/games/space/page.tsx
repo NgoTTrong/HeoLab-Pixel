@@ -93,6 +93,11 @@ export default function SpacePage() {
     shipTilt: 0,
     // Muzzle flash frames
     muzzleFlash: 0,
+    // Combo
+    combo: 0,
+    comboMultiplier: 1,
+    comboDisplayTimer: 0,
+    prevMultiplier: 1,
   });
 
   useEffect(() => { setHS(getHighScore(GAME_KEY)); }, []);
@@ -166,6 +171,10 @@ export default function SpacePage() {
     g.activeTriple = false;
     g.activeRapid = false;
     g.muzzleFlash = 0;
+    g.combo = 0;
+    g.comboMultiplier = 1;
+    g.comboDisplayTimer = 0;
+    g.prevMultiplier = 1;
     g.alienMoveTimer = 0;
     g.shipTilt = 0;
     keysRef.current.clear(); // release any held keys from previous game
@@ -213,6 +222,7 @@ export default function SpacePage() {
         g.muzzleFlash = 4; // frames to show muzzle flash
       }
       if (g.muzzleFlash > 0) g.muzzleFlash--;
+      if (g.comboDisplayTimer > 0) g.comboDisplayTimer--;
 
       // ── EXPIRE POWER-UPS ───────────────────────────────
       if (g.activeShield && now > g.shieldEndsAt) { g.activeShield = false; setActivePowerUpLabel(g.activeRapid ? "⚡ RAPID FIRE" : null); }
@@ -291,8 +301,14 @@ export default function SpacePage() {
             bullet.y = -999;
             if (alien.hp <= 0) {
               alien.alive = false;
+              // Combo
+              g.combo++;
+              g.prevMultiplier = g.comboMultiplier;
+              g.comboMultiplier = g.combo >= 20 ? 4 : g.combo >= 10 ? 3 : g.combo >= 5 ? 2 : 1;
+              g.comboDisplayTimer = 90;
+              if (g.comboMultiplier > g.prevMultiplier) audioRef.current?.playComboUp();
               const baseScore = alien.maxHp > 1 ? 25 : 10;
-              g.score += baseScore + g.wave * 2;
+              g.score += (baseScore + g.wave * 2) * g.comboMultiplier;
               setUiScore(g.score);
               audioRef.current?.playExplosion();
               // Drop power-up
@@ -307,7 +323,7 @@ export default function SpacePage() {
               }
             } else {
               // Tank hit — small score for each hit
-              g.score += 5;
+              g.score += 5 * g.comboMultiplier;
               setUiScore(g.score);
             }
           }
@@ -317,13 +333,16 @@ export default function SpacePage() {
           if (bullet.x > g.boss.x && bullet.x < g.boss.x + 80 && bullet.y > g.boss.y && bullet.y < g.boss.y + 50) {
             g.boss.hp -= 1;
             bullet.y = -999;
-            g.score += 5;
+            g.score += 5 * g.comboMultiplier;
             setUiScore(g.score);
             if (g.boss.hp <= 0) {
               audioRef.current?.playBossDie();
               g.boss = null;
               g.score += 300 + g.wave * 20;
               setUiScore(g.score);
+              g.combo = 0;
+              g.comboMultiplier = 1;
+              g.comboDisplayTimer = 0;
               g.wave++;
               setUiWave(g.wave);
               spawnAliens(g.wave);
@@ -383,6 +402,9 @@ export default function SpacePage() {
           if (!g.activeShield) {
             g.lives--;
             setUiLives(g.lives);
+            g.combo = 0;
+            g.comboMultiplier = 1;
+            g.comboDisplayTimer = 0;
             audioRef.current?.playHit();
             if (g.lives <= 0) {
               g.status = "dead";
@@ -524,6 +546,27 @@ export default function SpacePage() {
         ctx.shadowBlur = 12; ctx.shadowColor = def.color;
         ctx.fillText(def.emoji, pu.x - 11, pu.y + puBob);
         ctx.shadowBlur = 0;
+      }
+
+      // ── Draw combo multiplier ──────────────────────────────────────────
+      if (g.comboMultiplier > 1 && g.comboDisplayTimer > 0) {
+        const alpha = Math.min(1, g.comboDisplayTimer / 30);
+        const comboColor = g.comboMultiplier >= 4 ? "#ff2d95" : g.comboMultiplier === 3 ? "#ffe600" : "#39ff14";
+        ctx.globalAlpha = alpha;
+        ctx.font = "bold 11px monospace";
+        ctx.textAlign = "right";
+        ctx.fillStyle = comboColor;
+        ctx.shadowBlur = 10; ctx.shadowColor = comboColor;
+        ctx.fillText(`×${g.comboMultiplier} COMBO!`, W - 8, 36);
+        // Pulse scale when multiplier just changed
+        if (g.comboDisplayTimer > 80) {
+          const scale = 1 + (g.comboDisplayTimer - 80) / 80 * 0.3;
+          ctx.font = `bold ${Math.round(11 * scale)}px monospace`;
+          ctx.fillText(`×${g.comboMultiplier} COMBO!`, W - 8, 36);
+        }
+        ctx.globalAlpha = 1;
+        ctx.shadowBlur = 0;
+        ctx.textAlign = "left";
       }
 
       // ── Draw ship ─────────────────────────────────────

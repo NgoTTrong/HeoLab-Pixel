@@ -5,6 +5,13 @@ export const runtime = "edge";
 const W = 820;
 const H = 312;
 
+const NEON_GREEN = "#39ff14";
+const TEXT_COLOR = "#ffffff";
+const MUTED      = "#666666";
+
+const GAP_SM = "10px";  // outer column gap
+const GAP_MD = "14px";  // inner row gap (emoji row + wordmark row)
+
 export async function GET() {
   try {
     return new ImageResponse(
@@ -18,9 +25,8 @@ export async function GET() {
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            gap: "10px",
+            gap: GAP_SM,
             fontFamily: "sans-serif",
-            position: "relative",
           }}
         >
           {/* Dot grid */}
@@ -35,26 +41,26 @@ export async function GET() {
           />
 
           {/* Game emoji row */}
-          <div style={{ display: "flex", gap: "14px", fontSize: "28px" }}>
+          <div style={{ display: "flex", gap: GAP_MD, fontSize: "28px" }}>
             <span>🎮</span>
             <span>🕹️</span>
             <span>🎲</span>
           </div>
 
           {/* Wordmark: < HeoLab /> */}
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <span style={{ color: "#39ff14", fontSize: "36px", fontWeight: "bold" }}>{"<"}</span>
-            <span style={{ color: "#ffffff", fontSize: "54px", fontWeight: "bold" }}>HeoLab</span>
-            <span style={{ color: "#39ff14", fontSize: "36px", fontWeight: "bold" }}>{"/>"}</span>
+          <div style={{ display: "flex", alignItems: "center", gap: GAP_MD }}>
+            <span style={{ color: NEON_GREEN, fontSize: "36px", fontWeight: "bold" }}>{"<"}</span>
+            <span style={{ color: TEXT_COLOR, fontSize: "54px", fontWeight: "bold" }}>HeoLab</span>
+            <span style={{ color: NEON_GREEN, fontSize: "36px", fontWeight: "bold" }}>{"/>"}</span>
           </div>
 
           {/* Tagline */}
-          <div style={{ color: "#39ff14", fontSize: "16px" }}>
+          <div style={{ color: NEON_GREEN, fontSize: "16px" }}>
             Play. Explore. Have Fun.
           </div>
 
           {/* Subtitle */}
-          <div style={{ color: "#666666", fontSize: "13px" }}>
+          <div style={{ color: MUTED, fontSize: "13px" }}>
             Free Browser Games · heolab.dev
           </div>
         </div>

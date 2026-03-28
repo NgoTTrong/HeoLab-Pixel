@@ -16,6 +16,15 @@ type EmojiPhysics = {
   vy: number;
 };
 
+type Meteor = { x: number; y: number; vx: number; vy: number; el: HTMLDivElement };
+type Ship   = {
+  cx: number; cy: number; rx: number; ry: number;
+  angle: number; speed: number;
+  el: HTMLDivElement;
+  fireIn: number;
+};
+type Laser  = { x: number; y: number; vx: number; vy: number; el: HTMLDivElement; ttl: number };
+
 // ── Data ────────────────────────────────────────────────
 const allGames = [
   {
@@ -109,6 +118,26 @@ const floatingEmojis = [
   { emoji: "👾", top: "68%", left: "89%", duration: 4.5, delay: 0.8 },
   { emoji: "🧱", top: "82%", left: "18%", duration: 3.9, delay: 0.2 },
 ];
+
+// ── Space layer helpers ──────────────────────────────────
+const mkMeteorState = (W: number, H: number, el: HTMLDivElement): Meteor => {
+  const edge = Math.floor(Math.random() * 3); // 0=top 1=left 2=right
+  const spd  = 1.2 + Math.random() * 2.0;
+  let x: number, y: number, tx: number, ty: number;
+  if (edge === 0)      { x = Math.random() * W; y = -50;    tx = Math.random() * W; ty = H + 50; }
+  else if (edge === 1) { x = -50;    y = Math.random() * H; tx = W + 50; ty = Math.random() * H; }
+  else                 { x = W + 50; y = Math.random() * H; tx = -50;    ty = Math.random() * H; }
+  const d = Math.hypot(tx - x, ty - y) || 1;
+  return { x, y, vx: (tx - x) / d * spd, vy: (ty - y) / d * spd, el };
+};
+
+const SHIP_CONFIGS = [
+  { cx: 0.20, cy: 0.30, rx: 130, ry: 55, speed:  0.40, a0: 0 },
+  { cx: 0.78, cy: 0.22, rx:  90, ry: 70, speed: -0.35, a0: Math.PI },
+  { cx: 0.55, cy: 0.72, rx: 160, ry: 45, speed:  0.50, a0: Math.PI / 2 },
+] as const;
+
+const LASER_COLORS = ["#39ff14", "#00d4ff", "#ff2d95"] as const;
 
 const stats = [
   { number: "9",  label: "GAMES" },

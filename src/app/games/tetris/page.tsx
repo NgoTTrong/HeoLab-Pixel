@@ -1,15 +1,41 @@
 "use client";
 
-import { useReducer, useEffect, useCallback, useState } from "react";
+import { useReducer, useEffect, useCallback, useState, useRef } from "react";
 import GameLayout from "@/components/GameLayout";
 import PixelButton from "@/components/PixelButton";
 import { tetrisReducer, getAbsCells, ghostRow } from "@/games/tetris/logic";
 import { BOARD_COLS, BOARD_ROWS, RANDOM_EVENTS, getSpeed } from "@/games/tetris/config";
-import { TETROMINOES } from "@/games/tetris/tetrominoes";
+import { TETROMINOES, type TetrominoType } from "@/games/tetris/tetrominoes";
 import { getHighScore, setHighScore } from "@/lib/scores";
+import { createTetrisAudio } from "@/games/tetris/audio";
+import type { TetrisAudio } from "@/games/tetris/audio";
+import MuteButton from "@/components/MuteButton";
 
 const GAME_KEY = "tetris";
 const CELL_SIZE = 28; // px
+
+function MiniPiece({ type }: { type: TetrominoType }) {
+  const t = TETROMINOES[type];
+  const cells = t.cells[0];
+  const minC = Math.min(...cells.map(([c]) => c));
+  const maxC = Math.max(...cells.map(([c]) => c));
+  const minR = Math.min(...cells.map(([, r]) => r));
+  const maxR = Math.max(...cells.map(([, r]) => r));
+  const width = maxC - minC + 1;
+  const height = maxR - minR + 1;
+  const filled = new Set(cells.map(([c, r]) => `${c - minC},${r - minR}`));
+  const S = 7;
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: `repeat(${width}, ${S}px)`, gridTemplateRows: `repeat(${height}, ${S}px)`, gap: "1px" }}>
+      {Array.from({ length: width * height }, (_, i) => {
+        const c = i % width;
+        const r = Math.floor(i / width);
+        const on = filled.has(`${c},${r}`);
+        return <div key={i} style={{ width: S, height: S, backgroundColor: on ? t.color : "transparent", boxShadow: on ? `0 0 3px ${t.color}` : "none" }} />;
+      })}
+    </div>
+  );
+}
 
 export default function TetrisPage() {
   const [state, dispatch] = useReducer(tetrisReducer, undefined, () => {
@@ -30,8 +56,58 @@ export default function TetrisPage() {
     };
   });
   const [highScore, setHS] = useState(0);
+  const [muted, setMuted] = useState(() =>
+    typeof window !== "undefined" && localStorage.getItem("tetris-sound-muted") === "1"
+  );
+  const audioRef = useRef<TetrisAudio | null>(null);
+  const prevLinesRef = useRef(0);
+  const prevStatusRef = useRef<string>("idle");
+  const prevActiveRowRef = useRef(0);
 
   useEffect(() => { setHS(getHighScore(GAME_KEY)); }, []);
+
+  // Lazy-init audio on first interaction
+  useEffect(() => {
+    const init = () => {
+      if (!audioRef.current) {
+        audioRef.current = createTetrisAudio();
+        audioRef.current.setMuted(muted);
+      }
+    };
+    window.addEventListener("pointerdown", init, { once: true });
+    window.addEventListener("keydown", init, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", init);
+      window.removeEventListener("keydown", init);
+    };
+  }, [muted]);
+
+  useEffect(() => {
+    audioRef.current?.setMuted(muted);
+    localStorage.setItem("tetris-sound-muted", muted ? "1" : "0");
+  }, [muted]);
+
+  // Detect line clears
+  useEffect(() => {
+    const delta = state.lines - prevLinesRef.current;
+    if (delta > 0) audioRef.current?.playClear(delta);
+    prevLinesRef.current = state.lines;
+  }, [state.lines]);
+
+  // Detect game over
+  useEffect(() => {
+    if (state.status === "over" && prevStatusRef.current !== "over") audioRef.current?.playGameOver();
+    prevStatusRef.current = state.status;
+  }, [state.status]);
+
+  // Detect piece land (new piece spawned when row drops back to top)
+  useEffect(() => {
+    const prevRow = prevActiveRowRef.current;
+    prevActiveRowRef.current = state.active.row;
+    if (state.status === "playing" && prevRow > 3 && state.active.row <= 1) {
+      audioRef.current?.playLand();
+    }
+  }, [state.active.row, state.status]);
 
   useEffect(() => {
     if (state.status !== "playing") return;
@@ -60,10 +136,10 @@ export default function TetrisPage() {
     if (state.status === "idle" && e.key === " ") { e.preventDefault(); dispatch({ type: "START" }); return; }
     if (state.status !== "playing") return;
     switch (e.key) {
-      case "ArrowLeft":  e.preventDefault(); dispatch({ type: "MOVE_LEFT" }); break;
-      case "ArrowRight": e.preventDefault(); dispatch({ type: "MOVE_RIGHT" }); break;
+      case "ArrowLeft":  e.preventDefault(); dispatch({ type: "MOVE_LEFT" });  audioRef.current?.playMove(); break;
+      case "ArrowRight": e.preventDefault(); dispatch({ type: "MOVE_RIGHT" }); audioRef.current?.playMove(); break;
       case "ArrowDown":  e.preventDefault(); dispatch({ type: "MOVE_DOWN" }); break;
-      case "ArrowUp":    e.preventDefault(); dispatch({ type: "ROTATE" }); break;
+      case "ArrowUp":    e.preventDefault(); dispatch({ type: "ROTATE" });     audioRef.current?.playRotate(); break;
       case " ":          e.preventDefault(); dispatch({ type: "HARD_DROP" }); break;
       case "c": case "C": dispatch({ type: "HOLD" }); break;
     }
@@ -86,15 +162,13 @@ export default function TetrisPage() {
   const eventDef = state.activeEvent ? RANDOM_EVENTS.find((e) => e.type === state.activeEvent) : null;
 
   return (
-    <GameLayout title="BLOCK STORM" color="pink" score={state.score} highScore={highScore} onNewGame={() => dispatch({ type: "START" })}>
+    <GameLayout title="BLOCK STORM" color="pink" score={state.score} highScore={highScore} onNewGame={() => dispatch({ type: "START" })} actions={<MuteButton muted={muted} onToggle={() => setMuted(m => !m)} color="pink" />}>
       <div className="flex gap-4 items-start">
         {/* Hold */}
         <div className="flex flex-col gap-2 items-center">
           <span className="font-pixel text-[0.4rem] text-gray-500">HOLD</span>
           <div className="w-16 h-12 bg-dark-card border border-gray-800 flex items-center justify-center">
-            {state.held && (
-              <span className="text-xl" style={{ color: TETROMINOES[state.held].color }}>{state.held}</span>
-            )}
+            {state.held && <MiniPiece type={state.held} />}
           </div>
           <span className="font-pixel text-[0.4rem] text-gray-600">LVL {state.level}</span>
           <span className="font-pixel text-[0.4rem] text-gray-600">LINES {state.lines}</span>
@@ -148,7 +222,7 @@ export default function TetrisPage() {
           <span className="font-pixel text-[0.4rem] text-gray-500">NEXT</span>
           {state.nextPieces.map((type, i) => (
             <div key={i} className="w-16 h-10 bg-dark-card border border-gray-800 flex items-center justify-center">
-              <span className="text-sm" style={{ color: TETROMINOES[type].color }}>{type}</span>
+              <MiniPiece type={type} />
             </div>
           ))}
           <div className="mt-2 text-[0.4rem] text-gray-600 font-pixel">

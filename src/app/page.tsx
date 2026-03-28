@@ -8,12 +8,12 @@ import Navbar from "@/components/Navbar";
 type Category = "ALL" | "PUZZLE" | "CASUAL" | "ARCADE";
 
 type EmojiPhysics = {
+  relX: number;
+  relY: number;
   offsetX: number;
   offsetY: number;
   vx: number;
   vy: number;
-  homeX: number;
-  homeY: number;
 };
 
 // ── Data ────────────────────────────────────────────────
@@ -174,9 +174,10 @@ export default function HomePage() {
   const emojiRefs       = useRef<(HTMLDivElement | null)[]>([]);
   const physicsRef      = useRef<EmojiPhysics[]>([]);
   const mouseRef        = useRef({ x: -9999, y: -9999 });
-  const rafRef          = useRef<number>(0);
+  const rafRef          = useRef<number | null>(null);
   const lastParticleRef = useRef(0);
   const particleCountRef = useRef(0);
+  const liveParticlesRef = useRef<HTMLDivElement[]>([]);
 
   useEffect(() => {
     const hero = heroRef.current;
@@ -184,11 +185,14 @@ export default function HomePage() {
 
     // ── Init physics ──────────────────────────────────────
     const initPhysics = () => {
-      physicsRef.current = emojiRefs.current.map((el) => {
-        if (!el) return { offsetX: 0, offsetY: 0, vx: 0, vy: 0, homeX: 0, homeY: 0 };
-        const r = el.getBoundingClientRect();
-        return { offsetX: 0, offsetY: 0, vx: 0, vy: 0, homeX: r.left + r.width / 2, homeY: r.top + r.height / 2 };
-      });
+      physicsRef.current = floatingEmojis.map((item) => ({
+        relX: parseFloat(item.left) / 100,
+        relY: parseFloat(item.top) / 100,
+        offsetX: 0,
+        offsetY: 0,
+        vx: 0,
+        vy: 0,
+      }));
     };
 
     initPhysics();
@@ -219,32 +223,45 @@ export default function HomePage() {
 
       particleCountRef.current++;
       document.body.appendChild(el);
+      liveParticlesRef.current.push(el as HTMLDivElement);
       el.addEventListener("animationend", () => {
         el.remove();
+        liveParticlesRef.current = liveParticlesRef.current.filter((p) => p !== el);
         particleCountRef.current--;
       });
     };
 
     // ── RAF physics loop ──────────────────────────────────
+    let heroVisible = true;
+
     const REPEL_RADIUS = 130;
 
-    const tick = () => {
-      const t = Date.now() / 1000;
+    const tick = (timestamp: number) => {
+      if (!heroVisible) {
+        rafRef.current = 0;
+        return;
+      }
+      const t = timestamp / 1000;
       const { x: mx, y: my } = mouseRef.current;
+      const heroRect = hero.getBoundingClientRect();
 
       physicsRef.current.forEach((p, i) => {
         const el   = emojiRefs.current[i];
         const item = floatingEmojis[i];
         if (!el || !item) return;
 
-        // Sinusoidal float (replaces removed CSS animation)
+        // Sinusoidal float
         const phase    = (2 * Math.PI / item.duration) * t + item.delay;
         const floatY   = Math.sin(phase) * 8;
         const floatRot = Math.sin(phase) * 3;
 
+        // Live home position in viewport space
+        const homeX = heroRect.left + p.relX * heroRect.width;
+        const homeY = heroRect.top  + p.relY * heroRect.height;
+
         // Current screen center of emoji
-        const curX = p.homeX + p.offsetX;
-        const curY = p.homeY + p.offsetY;
+        const curX = homeX + p.offsetX;
+        const curY = homeY + p.offsetY;
         const dx   = mx - curX;
         const dy   = my - curY;
         const dist = Math.sqrt(dx * dx + dy * dy);
@@ -275,6 +292,14 @@ export default function HomePage() {
 
     rafRef.current = requestAnimationFrame(tick);
 
+    const observer = new IntersectionObserver(([entry]) => {
+      heroVisible = entry.isIntersecting;
+      if (heroVisible && rafRef.current === 0) {
+        rafRef.current = requestAnimationFrame(tick);
+      }
+    }, { threshold: 0 });
+    observer.observe(hero);
+
     // ── Mouse events ──────────────────────────────────────
     const handleMouseMove = (e: MouseEvent) => {
       mouseRef.current = { x: e.clientX, y: e.clientY };
@@ -304,11 +329,14 @@ export default function HomePage() {
     hero.addEventListener("mouseleave", handleMouseLeave);
 
     return () => {
-      cancelAnimationFrame(rafRef.current);
+      observer.disconnect();
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
       window.removeEventListener("resize", initPhysics);
       hero.removeEventListener("mousemove", handleMouseMove);
       hero.removeEventListener("mouseenter", handleMouseEnter);
       hero.removeEventListener("mouseleave", handleMouseLeave);
+      liveParticlesRef.current.forEach((el) => el.remove());
+      liveParticlesRef.current = [];
     };
   }, []);
 

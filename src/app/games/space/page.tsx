@@ -1025,7 +1025,16 @@ export default function SpacePage() {
       <div className="flex items-center justify-between w-full max-w-lg">
         <Link href="/games" className="text-[0.5rem] neon-text-blue hover:opacity-80">← BACK</Link>
         <h1 className="text-[0.6rem] sm:text-xs neon-text neon-text-blue">ASTRO RAID</h1>
-        <span className="text-[0.5rem] text-gray-400">BEST: {highScore}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-[0.5rem] text-gray-400">BEST: {highScore}</span>
+          <button
+            onClick={() => setMuted((m) => !m)}
+            className="font-pixel text-[0.5rem] border border-gray-600 hover:border-neon-blue hover:text-neon-blue px-1.5 py-0.5 transition-colors"
+            title={muted ? "Unmute sound" : "Mute sound"}
+          >
+            {muted ? "🔇 OFF" : "🔊 ON"}
+          </button>
+        </div>
       </div>
 
       {/* HUD */}
@@ -1033,13 +1042,6 @@ export default function SpacePage() {
         <span>SCORE: {uiScore}</span>
         <span>WAVE: {uiWave}</span>
         <span>{"🚀".repeat(uiLives)}</span>
-        <button
-          onClick={() => setMuted((m) => !m)}
-          className="text-[0.5rem] text-gray-500 hover:text-gray-300 transition-colors"
-          title={muted ? "Unmute" : "Mute"}
-        >
-          {muted ? "🔇" : "🔊"}
-        </button>
         {activePowerUpLabel && (
           <span className="text-neon-yellow animate-pulse">{activePowerUpLabel}</span>
         )}

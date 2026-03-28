@@ -472,9 +472,18 @@ export default function RunnerPage() {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if ((e.code === "Space" || e.key === "ArrowUp") && uiStatus === "playing") {
-        e.preventDefault();
-        jump();
+      if (e.code === "Space" || e.key === "ArrowUp") {
+        if (uiStatus === "playing") {
+          e.preventDefault();
+          jump();
+        } else if (uiStatus === "select") {
+          e.preventDefault();
+          startGame();
+        } else if (uiStatus === "dead") {
+          e.preventDefault();
+          setNewUnlock(null);
+          startGame();
+        }
       }
       if ((e.key === "ArrowDown" || e.key === "s" || e.key === "S") && uiStatus === "playing") {
         e.preventDefault();
@@ -483,7 +492,7 @@ export default function RunnerPage() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [jump, slide, uiStatus]);
+  }, [jump, slide, startGame, uiStatus]);
 
   const char = CHARACTERS[selectedChar];
 
@@ -516,8 +525,17 @@ export default function RunnerPage() {
       {/* Canvas always rendered — character select shown as overlay */}
       <div
         className="relative cursor-pointer w-full"
-        onClick={() => { if (uiStatus === "playing") jump(); }}
-        onTouchStart={(e) => { e.preventDefault(); if (uiStatus === "playing") jump(); }}
+        onClick={() => {
+          if (uiStatus === "playing") jump();
+          else if (uiStatus === "select") startGame();
+          else if (uiStatus === "dead") { setNewUnlock(null); startGame(); }
+        }}
+        onTouchStart={(e) => {
+          e.preventDefault();
+          if (uiStatus === "playing") jump();
+          else if (uiStatus === "select") startGame();
+          else if (uiStatus === "dead") { setNewUnlock(null); startGame(); }
+        }}
       >
         <canvas
           ref={canvasRef}
@@ -555,6 +573,7 @@ export default function RunnerPage() {
               <PixelButton color="green" onClick={startGame}>
                 RUN!
               </PixelButton>
+              <p className="text-[0.4rem] font-pixel text-gray-500 animate-pulse">PRESS SPACE TO START</p>
             </div>
           </div>
         )}
@@ -573,6 +592,7 @@ export default function RunnerPage() {
                 <PixelButton color="pink" onClick={() => { setNewUnlock(null); startGame(); }}>TRY AGAIN</PixelButton>
                 <PixelButton color="green" onClick={() => { setNewUnlock(null); setUiStatus("select"); }}>CHANGE</PixelButton>
               </div>
+              <p className="text-[0.4rem] font-pixel text-gray-500 animate-pulse">PRESS SPACE TO RETRY</p>
             </div>
           </div>
         )}

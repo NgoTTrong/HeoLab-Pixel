@@ -7,6 +7,9 @@ import SudokuGrid from "@/games/sudoku/SudokuGrid";
 import { createSudoku, placeNumber, toggleNote, useHint } from "@/games/sudoku/logic";
 import { Difficulty, RUNES, SudokuState } from "@/games/sudoku/types";
 import { getBestTime, setBestTime } from "@/lib/scores";
+import { createSudokuAudio } from "@/games/sudoku/audio";
+import type { SudokuAudio } from "@/games/sudoku/audio";
+import MuteButton from "@/components/MuteButton";
 
 export default function SudokuPage() {
   const [difficulty, setDifficulty] = useState<Difficulty>("easy");
@@ -16,8 +19,33 @@ export default function SudokuPage() {
   const [timerActive, setTimerActive] = useState(false);
   const [bestTime, setBest] = useState<number | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const audioRef = useRef<SudokuAudio | null>(null);
+  const [muted, setMuted] = useState(() =>
+    typeof window !== "undefined" && localStorage.getItem("sudoku-sound-muted") === "1"
+  );
 
   const gameKey = `sudoku-${difficulty}`;
+
+  // Lazy-init audio on first interaction
+  useEffect(() => {
+    const init = () => {
+      if (!audioRef.current) {
+        audioRef.current = createSudokuAudio();
+        audioRef.current.setMuted(muted);
+      }
+    };
+    window.addEventListener("pointerdown", init, { once: true });
+    window.addEventListener("keydown", init, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", init);
+      window.removeEventListener("keydown", init);
+    };
+  }, [muted]);
+
+  useEffect(() => {
+    audioRef.current?.setMuted(muted);
+    localStorage.setItem("sudoku-sound-muted", muted ? "1" : "0");
+  }, [muted]);
 
   // Load best time
   useEffect(() => {
@@ -69,7 +97,11 @@ export default function SudokuPage() {
       startTimerIfNeeded();
       setState((prev) => {
         const next = notesMode ? toggleNote(prev, num) : placeNumber(prev, num);
-        if (next.completed && !prev.completed) {
+        if (next === prev) return prev;
+        if (notesMode) {
+          audioRef.current?.playFill();
+        } else if (next.completed && !prev.completed) {
+          audioRef.current?.playWin();
           setTimerActive(false);
           setTimeout(() => {
             setTimer((t) => {
@@ -78,6 +110,14 @@ export default function SudokuPage() {
               return t;
             });
           }, 0);
+        } else if (prev.selected) {
+          const [r, c] = prev.selected;
+          const key = `${r},${c}`;
+          if (next.errors.has(key)) {
+            audioRef.current?.playWrong();
+          } else {
+            audioRef.current?.playCorrect();
+          }
         }
         return next;
       });
@@ -86,7 +126,11 @@ export default function SudokuPage() {
   );
 
   const handleDelete = useCallback(() => {
-    setState((prev) => placeNumber(prev, 0));
+    setState((prev) => {
+      const next = placeNumber(prev, 0);
+      if (next !== prev) audioRef.current?.playClear();
+      return next;
+    });
   }, []);
 
   const handleHint = useCallback(() => {
@@ -148,6 +192,7 @@ export default function SudokuPage() {
       color="blue"
       timer={timer}
       onNewGame={() => handleNewGame()}
+      actions={<MuteButton muted={muted} onToggle={() => setMuted(m => !m)} color="blue" />}
       controls={difficultyButtons}
     >
       <div className="flex flex-col items-center gap-3">

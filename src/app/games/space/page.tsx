@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import PixelButton from "@/components/PixelButton";
+import MuteButton from "@/components/MuteButton";
 import {
   POWER_UPS, WAVE_PATTERNS, COLS, ROWS, ALIEN_SIZE, ALIEN_GAP,
   BULLET_SPEED, ALIEN_BULLET_SPEED, SHIP_SPEED, ALIEN_SHOOT_INTERVAL,
@@ -1027,13 +1028,7 @@ export default function SpacePage() {
         <h1 className="text-[0.6rem] sm:text-xs neon-text neon-text-blue">ASTRO RAID</h1>
         <div className="flex items-center gap-2">
           <span className="text-[0.5rem] text-gray-400">BEST: {highScore}</span>
-          <button
-            onClick={() => setMuted((m) => !m)}
-            className="font-pixel text-[0.5rem] border border-gray-600 hover:border-neon-blue hover:text-neon-blue px-1.5 py-0.5 transition-colors"
-            title={muted ? "Unmute sound" : "Mute sound"}
-          >
-            {muted ? "🔇 OFF" : "🔊 ON"}
-          </button>
+          <MuteButton muted={muted} onToggle={() => setMuted((m) => !m)} color="blue" />
         </div>
       </div>
 

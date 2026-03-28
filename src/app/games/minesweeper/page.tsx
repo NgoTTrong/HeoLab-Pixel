@@ -8,6 +8,7 @@ import { createBoard, reveal, toggleFlag, chord } from "@/games/minesweeper/logi
 import { Difficulty, MinesweeperState, DIFFICULTIES } from "@/games/minesweeper/types";
 import { getBestTime, setBestTime } from "@/lib/scores";
 import { createMinesweeperAudio } from "@/games/minesweeper/audio";
+import MuteButton from "@/components/MuteButton";
 import type { MinesweeperAudio } from "@/games/minesweeper/audio";
 
 export default function MinesweeperPage() {
@@ -208,13 +209,7 @@ export default function MinesweeperPage() {
           <span>
             &#x1f479; MONSTERS: {monsterCount}
           </span>
-          <button
-            onClick={() => setMuted((m) => !m)}
-            className="text-[0.5rem] text-gray-500 hover:text-gray-300 transition-colors"
-            title={muted ? "Unmute" : "Mute"}
-          >
-            {muted ? "🔇" : "🔊"}
-          </button>
+          <MuteButton muted={muted} onToggle={() => setMuted((m) => !m)} color="green" />
           {isTouchDevice && state.gameState === "playing" && (
             <button
               type="button"

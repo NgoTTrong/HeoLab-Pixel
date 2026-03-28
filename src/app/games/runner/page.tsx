@@ -29,6 +29,21 @@ interface ObstacleObj {
   flyY: number;
 }
 
+function lerpColor(a: string, b: string, t: number): string {
+  const ah = a.replace("#", "");
+  const bh = b.replace("#", "");
+  const ar = parseInt(ah.slice(0, 2), 16);
+  const ag = parseInt(ah.slice(2, 4), 16);
+  const ab2 = parseInt(ah.slice(4, 6), 16);
+  const br = parseInt(bh.slice(0, 2), 16);
+  const bg = parseInt(bh.slice(2, 4), 16);
+  const bb2 = parseInt(bh.slice(4, 6), 16);
+  const r = Math.round(ar + (br - ar) * t).toString(16).padStart(2, "0");
+  const g2 = Math.round(ag + (bg - ag) * t).toString(16).padStart(2, "0");
+  const b3 = Math.round(ab2 + (bb2 - ab2) * t).toString(16).padStart(2, "0");
+  return `#${r}${g2}${b3}`;
+}
+
 export default function RunnerPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [selectedChar, setSelectedChar] = useState(0);
@@ -54,6 +69,14 @@ export default function RunnerPage() {
     scorePopY: 0,
     isSliding: false,
     slideTimer: 0,
+    fromSkyTop: "#87CEEB",
+    fromSkyBot: "#c8eaf9",
+    fromGround: "#c2965a",
+    toSkyTop: "#87CEEB",
+    toSkyBot: "#c8eaf9",
+    toGround: "#c2965a",
+    transitionT: 1,
+    lastWorldId: "desert",
   });
   const rafRef = useRef<number>(0);
   const audioRef = useRef<RunnerAudio | null>(null);
@@ -126,6 +149,15 @@ export default function RunnerPage() {
     g.lastHundreds = 0;
     g.isSliding = false;
     g.slideTimer = 0;
+    const startWorld = getWorld(0);
+    g.fromSkyTop = startWorld.skyColor;
+    g.fromSkyBot = startWorld.skyColorBottom;
+    g.fromGround = startWorld.groundColor;
+    g.toSkyTop = startWorld.skyColor;
+    g.toSkyBot = startWorld.skyColorBottom;
+    g.toGround = startWorld.groundColor;
+    g.transitionT = 1;
+    g.lastWorldId = startWorld.id;
     setUiStatus("playing");
     setUiScore(0);
   }, []);
@@ -175,6 +207,23 @@ export default function RunnerPage() {
       const world = getWorld(Math.floor(g.score));
       g.speed = Math.min(MAX_SPEED, BASE_SPEED + g.score / 600);
       g.groundOffset = (g.groundOffset + g.speed) % 40;
+
+      // World transition detection
+      if (world.id !== g.lastWorldId) {
+        g.fromSkyTop = lerpColor(g.fromSkyTop, g.toSkyTop, g.transitionT);
+        g.fromSkyBot = lerpColor(g.fromSkyBot, g.toSkyBot, g.transitionT);
+        g.fromGround = lerpColor(g.fromGround, g.toGround, g.transitionT);
+        g.toSkyTop = world.skyColor;
+        g.toSkyBot = world.skyColorBottom;
+        g.toGround = world.groundColor;
+        g.transitionT = 0;
+        g.lastWorldId = world.id;
+      }
+      if (g.transitionT < 1) g.transitionT = Math.min(1, g.transitionT + 1 / 120);
+
+      const effSkyTop = lerpColor(g.fromSkyTop, g.toSkyTop, g.transitionT);
+      const effSkyBot = lerpColor(g.fromSkyBot, g.toSkyBot, g.transitionT);
+      const effGround = lerpColor(g.fromGround, g.toGround, g.transitionT);
 
       // Physics
       g.charVY += GRAVITY;
@@ -249,13 +298,13 @@ export default function RunnerPage() {
 
       // Draw sky (gradient)
       const skyGrad = ctx.createLinearGradient(0, 0, 0, H - GROUND_HEIGHT);
-      skyGrad.addColorStop(0, world.skyColor);
-      skyGrad.addColorStop(1, world.skyColorBottom);
+      skyGrad.addColorStop(0, effSkyTop);
+      skyGrad.addColorStop(1, effSkyBot);
       ctx.fillStyle = skyGrad;
       ctx.fillRect(0, 0, W, H - GROUND_HEIGHT);
 
       // Draw ground
-      ctx.fillStyle = world.groundColor;
+      ctx.fillStyle = effGround;
       ctx.fillRect(0, H - GROUND_HEIGHT, W, GROUND_HEIGHT);
       ctx.fillStyle = "rgba(0,0,0,0.3)";
       ctx.fillRect(0, H - GROUND_HEIGHT, W, 3);

@@ -4,7 +4,7 @@ import { useReducer, useEffect, useCallback, useRef, useState } from "react";
 import GameLayout from "@/components/GameLayout";
 import PixelButton from "@/components/PixelButton";
 import { snakeReducer, type Direction } from "@/games/snake/logic";
-import { GRID_SIZE, LEVELS, POWER_UPS } from "@/games/snake/config";
+import { GRID_SIZE, LEVELS, POWER_UPS, BOMB_BLINK_MS } from "@/games/snake/config";
 import { getHighScore, setHighScore } from "@/lib/scores";
 import { createSnakeAudio } from "@/games/snake/audio";
 import type { SnakeAudio } from "@/games/snake/audio";
@@ -24,6 +24,7 @@ export default function SnakePage() {
     food: { x: 15, y: 10 },
     spawnedPowerUp: null,
     activePowerUp: null,
+    bomb: null,
     score: 0,
     level: 0,
     status: "idle",
@@ -161,6 +162,11 @@ export default function SnakePage() {
     ? POWER_UPS.find((p) => p.type === state.spawnedPowerUp!.type)
     : null;
 
+  const now = Date.now();
+  const bombBlinking = state.bomb
+    ? now - state.bomb.spawnedAt > BOMB_BLINK_MS
+    : false;
+
   return (
     <GameLayout
       title="NEON SERPENT"
@@ -218,6 +224,8 @@ export default function SnakePage() {
           const segIdx = state.snake.findIndex((s) => s.x === x && s.y === y);
           const isSnake = segIdx !== -1;
           const opacity = isSnake ? Math.max(0.15, 1 - segIdx * 0.05) : 1;
+          const isTail = segIdx === state.snake.length - 1 && state.snake.length > 1;
+          const isBomb = state.bomb?.pos.x === x && state.bomb?.pos.y === y;
 
           return (
             <div
@@ -228,24 +236,60 @@ export default function SnakePage() {
                   : isSnake
                   ? `${snakeColor}${Math.round(opacity * 255).toString(16).padStart(2, "0")}`
                   : isFood
-                  ? "#ff2d95"
+                  ? "transparent"
                   : isSpawnedPowerUp
                   ? spawnedDef?.color ?? "#fff"
+                  : isBomb
+                  ? "transparent"
                   : "transparent",
                 boxShadow: isHead
                   ? `0 0 6px ${snakeColor}`
                   : isFood
-                  ? "0 0 4px #ff2d95"
+                  ? "none"
                   : "none",
-                borderRadius: isHead ? "2px" : "1px",
+                borderRadius: isHead ? "4px" : isSnake ? "1px" : "0",
+                transform: isTail ? "scale(0.6)" : undefined,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontSize: "0.5rem",
+                fontSize: "65%",
                 transition: "background-color 0.05s",
+                position: "relative" as const,
               }}
             >
-              {isFood ? "" : isSpawnedPowerUp ? spawnedDef?.emoji : ""}
+              {/* Snake head eyes */}
+              {isHead && (
+                <>
+                  <span style={{
+                    position: "absolute",
+                    width: "2px", height: "2px",
+                    background: "#000",
+                    borderRadius: "50%",
+                    top: state.direction === "DOWN" ? "auto" : "20%",
+                    bottom: state.direction === "DOWN" ? "20%" : "auto",
+                    left: state.direction === "RIGHT" ? "auto" : state.direction === "LEFT" ? "20%" : "20%",
+                    right: state.direction === "RIGHT" ? "20%" : "auto",
+                  }} />
+                  <span style={{
+                    position: "absolute",
+                    width: "2px", height: "2px",
+                    background: "#000",
+                    borderRadius: "50%",
+                    top: state.direction === "DOWN" ? "auto" : "20%",
+                    bottom: state.direction === "DOWN" ? "20%" : "auto",
+                    left: state.direction === "RIGHT" ? "auto" : state.direction === "LEFT" ? "20%" : "55%",
+                    right: state.direction === "RIGHT" ? "20%" : state.direction === "UP" ? "auto" : "auto",
+                  }} />
+                </>
+              )}
+              {/* Food */}
+              {isFood && <span>🍎</span>}
+              {/* Power-up */}
+              {!isFood && isSpawnedPowerUp && spawnedDef?.emoji}
+              {/* Bomb */}
+              {isBomb && (
+                <span className={bombBlinking ? "animate-pulse" : ""}>💣</span>
+              )}
             </div>
           );
         })}

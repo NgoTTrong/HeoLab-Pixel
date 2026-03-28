@@ -8,6 +8,9 @@ import {
 } from "@/games/flappy/config";
 import { getHighScore, setHighScore } from "@/lib/scores";
 import Link from "next/link";
+import { createFlappyAudio } from "@/games/flappy/audio";
+import type { FlappyAudio } from "@/games/flappy/audio";
+import MuteButton from "@/components/MuteButton";
 
 const GAME_KEY = "flappy";
 
@@ -44,10 +47,35 @@ export default function FlappyPage() {
   });
   const rafRef = useRef<number>(0);
   const theme = useRef(getTimeTheme());
+  const audioRef = useRef<FlappyAudio | null>(null);
+  const [muted, setMuted] = useState(() =>
+    typeof window !== "undefined" && localStorage.getItem("flappy-sound-muted") === "1"
+  );
 
   useEffect(() => {
     setUiState((s) => ({ ...s, highScore: getHighScore(GAME_KEY) }));
   }, []);
+
+  // Lazy-init audio on first interaction
+  useEffect(() => {
+    const init = () => {
+      if (!audioRef.current) {
+        audioRef.current = createFlappyAudio();
+        audioRef.current.setMuted(muted);
+      }
+    };
+    window.addEventListener("pointerdown", init, { once: true });
+    window.addEventListener("keydown", init, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", init);
+      window.removeEventListener("keydown", init);
+    };
+  }, [muted]);
+
+  useEffect(() => {
+    audioRef.current?.setMuted(muted);
+    localStorage.setItem("flappy-sound-muted", muted ? "1" : "0");
+  }, [muted]);
 
   const spawnParticles = (x: number, y: number) => {
     const colors = ["#ff2d95", "#ffe600", "#00d4ff", "#39ff14", "#ffffff"];
@@ -81,6 +109,7 @@ export default function FlappyPage() {
     if (s.status === "idle") { startGame(); return; }
     if (s.status !== "playing") return;
     s.birdVY = FLAP_IMPULSE;
+    audioRef.current?.playFlap();
     if ("vibrate" in navigator) navigator.vibrate(15);
   }, [startGame]);
 
@@ -93,6 +122,7 @@ export default function FlappyPage() {
     const BIRD_SIZE = 24;
 
     function draw() {
+      if (document.hidden) { rafRef.current = requestAnimationFrame(draw); return; }
       const ctx = canvas!.getContext("2d")!;
       const s = stateRef.current;
       const t = theme.current;
@@ -133,6 +163,7 @@ export default function FlappyPage() {
           if (!pipe.passed && pipe.x + PIPE_WIDTH < BIRD_X) {
             pipe.passed = true;
             s.score++;
+            audioRef.current?.playScore();
             setUiState((prev) => ({ ...prev, score: s.score }));
           }
         }
@@ -141,6 +172,7 @@ export default function FlappyPage() {
         if (s.birdY + BIRD_SIZE / 2 > H - GROUND_HEIGHT || s.birdY - BIRD_SIZE / 2 < 0) {
           s.status = "dead";
           spawnParticles(BIRD_X, s.birdY);
+          audioRef.current?.playDie();
           const hs = getHighScore(GAME_KEY);
           if (s.score > hs) setHighScore(GAME_KEY, s.score);
           setUiState({ status: "dead", score: s.score, highScore: Math.max(s.score, hs) });
@@ -160,6 +192,7 @@ export default function FlappyPage() {
             if (birdTop < gapTop || birdBottom > gapBottom) {
               s.status = "dead";
               spawnParticles(BIRD_X, s.birdY);
+              audioRef.current?.playDie();
               const hs = getHighScore(GAME_KEY);
               if (s.score > hs) setHighScore(GAME_KEY, s.score);
               setUiState({ status: "dead", score: s.score, highScore: Math.max(s.score, hs) });
@@ -233,20 +266,23 @@ export default function FlappyPage() {
   return (
     <div className="flex flex-col items-center min-h-screen p-4 gap-4">
       {/* Top bar */}
-      <div className="flex items-center justify-between w-full max-w-sm">
+      <div className="flex items-center justify-between w-full max-w-md">
         <Link href="/games" className="text-[0.5rem] neon-text-yellow hover:opacity-80">← BACK</Link>
         <h1 className="text-[0.6rem] sm:text-xs neon-text neon-text-yellow">PIXEL FLAP</h1>
-        <span className="text-[0.5rem] text-gray-400">BEST: {uiState.highScore}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-[0.5rem] text-gray-400">BEST: {uiState.highScore}</span>
+          <MuteButton muted={muted} onToggle={() => setMuted(m => !m)} color="yellow" />
+        </div>
       </div>
 
       {/* Canvas */}
       <div className="relative cursor-pointer" onClick={flap} onTouchStart={(e) => { e.preventDefault(); flap(); }}>
         <canvas
           ref={canvasRef}
-          width={360}
-          height={540}
+          width={480}
+          height={580}
           className="border border-neon-yellow/20 rounded-sm"
-          style={{ imageRendering: "pixelated", touchAction: "none" }}
+          style={{ imageRendering: "pixelated", touchAction: "none", maxWidth: "100%" }}
         />
 
         {/* Idle overlay */}

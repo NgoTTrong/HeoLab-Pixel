@@ -11,7 +11,9 @@ export interface World {
   id: string;
   label: string;
   skyColor: string;
+  skyColorBottom: string;
   groundColor: string;
+  groundStripeColor: string;
   multiplier: number;
 }
 
@@ -31,10 +33,30 @@ export const CHARACTERS: Character[] = [
 ];
 
 export const WORLDS: World[] = [
-  { minScore: 0,    id: "desert", label: "DESERT",      skyColor: "#87CEEB", groundColor: "#c2965a", multiplier: 1.0 },
-  { minScore: 300,  id: "dusk",   label: "DUSK",        skyColor: "#FF7043", groundColor: "#6d4c41", multiplier: 1.2 },
-  { minScore: 600,  id: "storm",  label: "NIGHT STORM", skyColor: "#1a1a2e", groundColor: "#2a2a4a", multiplier: 1.5 },
-  { minScore: 1000, id: "lava",   label: "LAVA WORLD",  skyColor: "#1a0a00", groundColor: "#7f1d1d", multiplier: 2.0 },
+  {
+    minScore: 0,    id: "desert", label: "DESERT",
+    skyColor: "#87CEEB",  skyColorBottom: "#c8eaf9",
+    groundColor: "#c2965a", groundStripeColor: "#d4a96a",
+    multiplier: 1.0,
+  },
+  {
+    minScore: 300,  id: "dusk",   label: "DUSK",
+    skyColor: "#c0392b",  skyColorBottom: "#f39c12",
+    groundColor: "#6d4c41", groundStripeColor: "#8d6e63",
+    multiplier: 1.2,
+  },
+  {
+    minScore: 600,  id: "storm",  label: "NIGHT STORM",
+    skyColor: "#0d0d1a",  skyColorBottom: "#1a1a2e",
+    groundColor: "#2a2a4a", groundStripeColor: "#3a3a5a",
+    multiplier: 1.5,
+  },
+  {
+    minScore: 1000, id: "lava",   label: "LAVA WORLD",
+    skyColor: "#1a0500",  skyColorBottom: "#3d0a00",
+    groundColor: "#7f1d1d", groundStripeColor: "#991f1f",
+    multiplier: 2.0,
+  },
 ];
 
 export const OBSTACLES: Obstacle[] = [
@@ -57,5 +79,5 @@ export function getAvailableObstacles(score: number): Obstacle[] {
 export const GROUND_HEIGHT = 60;
 export const GRAVITY = 0.7;
 export const JUMP_IMPULSE = -14;
-export const BASE_SPEED = 5;
+export const BASE_SPEED = 3;
 export const MAX_SPEED = 12;

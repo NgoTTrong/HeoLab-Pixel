@@ -37,10 +37,15 @@ export default function FlappyPage() {
     birdY: 200,
     birdVY: 0,
     pipes: [] as Pipe[],
+    coins: [] as { x: number; y: number; collected: boolean }[],
+    clouds: [] as { x: number; y: number; w: number }[],
     particles: [] as Particle[],
     score: 0,
     frame: 0,
     birdAngle: 0,
+    birdWingUp: false,
+    newBestTimer: 0,
+    newBestShown: false,
   });
   const [uiState, setUiState] = useState<{ status: GameStatus; score: number; highScore: number }>({
     status: "idle", score: 0, highScore: 0,
@@ -77,6 +82,15 @@ export default function FlappyPage() {
     localStorage.setItem("flappy-sound-muted", muted ? "1" : "0");
   }, [muted]);
 
+  // Pre-populate clouds for idle state
+  useEffect(() => {
+    stateRef.current.clouds = Array.from({ length: 5 }, (_, i) => ({
+      x: i * 100 + Math.random() * 60,
+      y: 40 + Math.random() * 80,
+      w: 60 + Math.random() * 60,
+    }));
+  }, []);
+
   const spawnParticles = (x: number, y: number) => {
     const colors = ["#ff2d95", "#ffe600", "#00d4ff", "#39ff14", "#ffffff"];
     stateRef.current.particles = Array.from({ length: 20 }, () => ({
@@ -96,10 +110,19 @@ export default function FlappyPage() {
       birdY: 200,
       birdVY: 0,
       pipes: [],
+      coins: [],
+      clouds: Array.from({ length: 5 }, (_, i) => ({
+        x: i * 100 + 50,
+        y: 40 + Math.random() * 80,
+        w: 60 + Math.random() * 60,
+      })),
       particles: [],
       score: 0,
       frame: 0,
       birdAngle: 0,
+      birdWingUp: false,
+      newBestTimer: 0,
+      newBestShown: false,
     };
     setUiState((s) => ({ ...s, status: "playing", score: 0 }));
   }, []);
@@ -141,6 +164,23 @@ export default function FlappyPage() {
       ctx.fillStyle = "rgba(0,0,0,0.3)";
       ctx.fillRect(0, H - GROUND_HEIGHT, W, 4);
 
+      // Draw clouds (parallax background)
+      ctx.shadowBlur = 0;
+      for (const cloud of s.clouds) {
+        ctx.fillStyle = "rgba(255,255,255,0.55)";
+        ctx.beginPath();
+        ctx.arc(cloud.x + cloud.w * 0.3, cloud.y + 9, 12, 0, Math.PI * 2);
+        ctx.arc(cloud.x + cloud.w * 0.6, cloud.y + 5, 16, 0, Math.PI * 2);
+        ctx.arc(cloud.x + cloud.w * 0.8, cloud.y + 11, 10, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Idle animation: bird bobs up/down
+      if (s.status === "idle") {
+        s.frame++;
+        s.birdY = 200 + Math.sin(s.frame * 0.05) * 20;
+      }
+
       if (s.status === "playing") {
         s.frame++;
         s.birdVY += GRAVITY;
@@ -153,6 +193,11 @@ export default function FlappyPage() {
           const maxTop = H - GROUND_HEIGHT - PIPE_GAP - 60;
           const topHeight = Math.floor(Math.random() * (maxTop - minTop) + minTop);
           s.pipes.push({ x: W, topHeight, passed: false });
+          // 50% chance to spawn a coin in the center of the gap
+          if (Math.random() < 0.5) {
+            const coinY = topHeight + PIPE_GAP / 2;
+            s.coins.push({ x: W + PIPE_WIDTH / 2, y: coinY, collected: false });
+          }
         }
 
         // Move pipes
@@ -168,6 +213,47 @@ export default function FlappyPage() {
           }
         }
 
+        // Move clouds (parallax — slower than pipes)
+        for (const cloud of s.clouds) {
+          cloud.x -= PIPE_SPEED * 0.3;
+          if (cloud.x + cloud.w < 0) {
+            cloud.x = W + cloud.w;
+            cloud.y = 40 + Math.random() * 80;
+          }
+        }
+
+        // Toggle wing animation every 8 frames
+        if (s.frame % 8 === 0) s.birdWingUp = !s.birdWingUp;
+
+        // Move coins
+        s.coins = s.coins.filter((c) => c.x > -20);
+        for (const coin of s.coins) {
+          coin.x -= PIPE_SPEED;
+        }
+
+        // Coin collection
+        for (const coin of s.coins) {
+          if (
+            !coin.collected &&
+            Math.abs(coin.x - BIRD_X) < 16 &&
+            Math.abs(coin.y - s.birdY) < 16
+          ) {
+            coin.collected = true;
+            s.score++;
+            audioRef.current?.playScore();
+            setUiState((prev) => ({ ...prev, score: s.score }));
+          }
+        }
+        s.coins = s.coins.filter((c) => !c.collected);
+
+        // New best detection (read from localStorage to avoid stale closure)
+        const currentBest = getHighScore(GAME_KEY);
+        if (!s.newBestShown && s.score > currentBest && currentBest > 0) {
+          s.newBestShown = true;
+          s.newBestTimer = 90;
+        }
+        if (s.newBestTimer > 0) s.newBestTimer--;
+
         // Collision: ground/ceiling
         if (s.birdY + BIRD_SIZE / 2 > H - GROUND_HEIGHT || s.birdY - BIRD_SIZE / 2 < 0) {
           s.status = "dead";
@@ -176,6 +262,7 @@ export default function FlappyPage() {
           const hs = getHighScore(GAME_KEY);
           if (s.score > hs) setHighScore(GAME_KEY, s.score);
           setUiState({ status: "dead", score: s.score, highScore: Math.max(s.score, hs) });
+          rafRef.current = requestAnimationFrame(draw);
           return;
         }
 
@@ -196,6 +283,7 @@ export default function FlappyPage() {
               const hs = getHighScore(GAME_KEY);
               if (s.score > hs) setHighScore(GAME_KEY, s.score);
               setUiState({ status: "dead", score: s.score, highScore: Math.max(s.score, hs) });
+              rafRef.current = requestAnimationFrame(draw);
               return;
             }
           }
@@ -213,17 +301,67 @@ export default function FlappyPage() {
         ctx.fillRect(pipe.x - 4, pipe.topHeight + PIPE_GAP, PIPE_WIDTH + 8, 14);
       }
 
-      // Draw bird (pixel square with rotation)
+      // Draw coins
+      for (const coin of s.coins) {
+        const bobY = coin.y + Math.sin(s.frame * 0.1 + coin.x * 0.01) * 4;
+        ctx.fillStyle = "#ffe600";
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = "#ffe600";
+        ctx.beginPath();
+        ctx.arc(coin.x, bobY, 7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#b8860b";
+        ctx.font = "bold 8px monospace";
+        ctx.textAlign = "center";
+        ctx.fillText("$", coin.x, bobY + 3);
+        ctx.shadowBlur = 0;
+      }
+      ctx.textAlign = "left";
+
+      // New best flash
+      if (s.newBestTimer > 0) {
+        const alpha = Math.min(1, s.newBestTimer / 30);
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = "#ffe600";
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = "#ffe600";
+        ctx.font = "bold 14px monospace";
+        ctx.textAlign = "center";
+        ctx.fillText("★ NEW BEST!", W / 2, 72);
+        ctx.shadowBlur = 0;
+        ctx.globalAlpha = 1;
+        ctx.textAlign = "left";
+      }
+
+      // Draw bird with wing animation
       ctx.save();
       ctx.translate(BIRD_X, s.birdY);
       ctx.rotate((s.birdAngle * Math.PI) / 180);
       if (s.status !== "dead") {
+        // Wing (behind body)
+        ctx.fillStyle = "#f5a623";
+        if (s.birdWingUp && s.status === "playing") {
+          ctx.fillRect(-5, -16, 10, 8);  // wing up
+        } else {
+          ctx.fillRect(-5, 6, 10, 8);    // wing down / idle
+        }
+        // Body
         ctx.fillStyle = "#ffe600";
-        ctx.fillRect(-BIRD_SIZE / 2, -BIRD_SIZE / 2, BIRD_SIZE, BIRD_SIZE);
-        ctx.fillStyle = "#ff2d95";
-        ctx.fillRect(4, -4, 8, 8); // eye
+        ctx.fillRect(-10, -9, 20, 18);
+        // Eye
+        ctx.fillStyle = "#000";
+        ctx.fillRect(3, -5, 5, 5);
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(4, -4, 2, 2);
+        // Beak
         ctx.fillStyle = "#f97316";
-        ctx.fillRect(BIRD_SIZE / 2 - 2, 0, 8, 4); // beak
+        ctx.fillRect(10, -1, 7, 4);
+        // Glow
+        ctx.shadowBlur = 6;
+        ctx.shadowColor = "#ffe600";
+        ctx.fillStyle = "#ffe600";
+        ctx.fillRect(-10, -9, 20, 18);
+        ctx.shadowBlur = 0;
       }
       ctx.restore();
 

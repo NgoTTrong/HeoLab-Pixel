@@ -42,6 +42,7 @@ export async function GET(request: NextRequest) {
             alignItems: "center",
             justifyContent: "center",
             gap: `${gap}px`,
+            fontFamily: "sans-serif",
           }}
         >
           {/* Dot grid overlay (dark variant only) */}
@@ -71,7 +72,7 @@ export async function GET(request: NextRequest) {
 
           {/* Tagline */}
           <div style={{ color: neonGreen, fontSize: `${taglineSize}px` }}>
-            Play. Explore. Fun.
+            Play. Explore. Have Fun.
           </div>
         </div>
       ),

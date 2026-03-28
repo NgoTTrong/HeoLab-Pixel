@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import PixelButton from "@/components/PixelButton";
 import {
-  CHARACTERS, GROUND_HEIGHT, GRAVITY, JUMP_IMPULSE, BASE_SPEED, MAX_SPEED,
+  CHARACTERS, WORLDS, GROUND_HEIGHT, GRAVITY, JUMP_IMPULSE, BASE_SPEED, MAX_SPEED,
   getWorld, getAvailableObstacles,
 } from "@/games/runner/config";
 import { getHighScore, setHighScore } from "@/lib/scores";
@@ -361,11 +361,55 @@ export default function RunnerPage() {
         ctx.restore();
       }
 
+      // Stars (night/lava worlds)
+      const isNightWorld = world.id === "storm" || world.id === "lava";
+      const wasNightWorld = g.lastWorldId === "storm" || g.lastWorldId === "lava";
+      const starAlpha = isNightWorld
+        ? g.transitionT
+        : wasNightWorld ? (1 - g.transitionT) : 0;
+      if (starAlpha > 0.01) {
+        ctx.save();
+        for (const star of g.stars) {
+          const twinkle = 0.4 + 0.4 * Math.sin(g.frame * 0.05 + star.phase);
+          ctx.globalAlpha = starAlpha * twinkle;
+          ctx.fillStyle = "#ffffff";
+          ctx.shadowBlur = 0;
+          ctx.fillRect(star.x, star.y, 1.5, 1.5);
+        }
+        ctx.globalAlpha = 1;
+        ctx.restore();
+      }
+
       // Draw ground
       ctx.fillStyle = effGround;
       ctx.fillRect(0, H - GROUND_HEIGHT, W, GROUND_HEIGHT);
+
+      // Ground top stripe (lerped accent band)
+      const fromWorldDef = WORLDS.find(w => w.id === g.lastWorldId) ?? WORLDS[0];
+      const effStripe = lerpColor(fromWorldDef.groundStripeColor, world.groundStripeColor, g.transitionT);
+      ctx.fillStyle = effStripe;
+      ctx.fillRect(0, H - GROUND_HEIGHT, W, 6);
+
+      // Shadow line
       ctx.fillStyle = "rgba(0,0,0,0.3)";
       ctx.fillRect(0, H - GROUND_HEIGHT, W, 3);
+
+      // Lava cracks
+      if (world.id === "lava" && g.transitionT > 0.3) {
+        ctx.save();
+        ctx.globalAlpha = (g.transitionT - 0.3) / 0.7;
+        ctx.strokeStyle = "#f97316";
+        ctx.lineWidth = 1.5;
+        for (let cx = (g.groundOffset * 2) % 80; cx < W; cx += 80) {
+          ctx.beginPath();
+          ctx.moveTo(cx, H - GROUND_HEIGHT + 8);
+          ctx.lineTo(cx + 12, H - GROUND_HEIGHT + 22);
+          ctx.lineTo(cx + 6, H - GROUND_HEIGHT + 38);
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+        ctx.restore();
+      }
 
       // Ground detail lines
       ctx.strokeStyle = "rgba(0,0,0,0.2)";

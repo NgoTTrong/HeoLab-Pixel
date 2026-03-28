@@ -5,6 +5,7 @@ export const runtime = "edge";
 const W = 2560;
 const H = 1440;
 
+const DARK_BG    = "#0a0a0a";
 const NEON_GREEN = "#39ff14";
 const TEXT_COLOR = "#ffffff";
 const MUTED      = "#666666";
@@ -18,7 +19,7 @@ export async function GET() {
       (
         <div
           style={{
-            background: "#0a0a0a",
+            background: DARK_BG,
             width: "100%",
             height: "100%",
             display: "flex",
@@ -54,7 +55,7 @@ export async function GET() {
                 borderRadius: "8px",
               }}
             >
-              <span style={{ fontSize: "52px", color: "#0a0a0a", marginLeft: "8px" }}>▶</span>
+              <span style={{ fontSize: "52px", color: DARK_BG, marginLeft: "8px" }}>▶</span>
             </div>
 
             {/* < HeoLab /> */}

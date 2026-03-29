@@ -231,7 +231,8 @@ export default function MinesweeperPage() {
         </div>
 
         {/* Board */}
-        <div className={`relative transition-all duration-500
+        <div className="w-full overflow-x-auto">
+        <div className={`relative transition-all duration-500 inline-block
           ${state.gameState === "lost" ? "animate-[screenShake_0.5s_ease-in-out]" : ""}`}>
           <Board
             board={state.board}
@@ -241,6 +242,7 @@ export default function MinesweeperPage() {
             onChord={handleChord}
             flagMode={flagMode}
           />
+        </div>
         </div>
 
         {/* Win overlay */}

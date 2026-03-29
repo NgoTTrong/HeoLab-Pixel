@@ -31,12 +31,13 @@ export default function Board({
   // Calculate cell size to fit viewport
   useEffect(() => {
     function calcSize() {
-      const maxW = window.innerWidth - 48; // padding
-      const maxH = window.innerHeight - 220; // header, controls, status
+      const maxW = window.innerWidth - 32; // padding
+      const maxH = window.innerHeight - 280; // header, controls, status
       const sizeByW = Math.floor(maxW / cols);
       const sizeByH = Math.floor(maxH / rows);
       const size = Math.min(sizeByW, sizeByH, 32); // max 32px
-      setCellSize(Math.max(size, 18)); // min 18px
+      // min 10px so hard mode (30 cols) never overflows on mobile
+      setCellSize(Math.max(size, 10));
     }
     calcSize();
     window.addEventListener("resize", calcSize);

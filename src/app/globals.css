@@ -414,6 +414,26 @@ body {
   100%   { top: -2px; opacity: 0; }
 }
 
+/* ── Console cursor blink ────────────────────────────── */
+@keyframes cursorBlink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+.cursor-blink {
+  animation: cursorBlink 0.7s step-end infinite;
+}
+
+/* ── Card select flash ───────────────────────────────── */
+@keyframes cardFlash {
+  0%   { opacity: 0.4; }
+  100% { opacity: 0; }
+}
+
+.card-flash {
+  animation: cardFlash 0.22s ease-out forwards;
+}
+
 /* ── HeoLab title: RGB Glitch ────────────────────────── */
 .heolab-glitch {
   position: relative;

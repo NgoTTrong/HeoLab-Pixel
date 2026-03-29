@@ -197,6 +197,7 @@ const TABS: Category[] = ["ALL", "PUZZLE", "CASUAL", "ARCADE"];
 // ── Component ────────────────────────────────────────────
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState<Category>("ALL");
+  const [flashCard, setFlashCard] = useState<string | null>(null);
   const sounds = usePixelSound();
 
   // Mouse interaction refs (no state → no re-renders)
@@ -654,17 +655,31 @@ export default function HomePage() {
               <Link
                 key={game.href}
                 href={game.href}
-                className="group relative block rounded-sm bg-dark-card p-4 border transition-all duration-300 hover:-translate-y-1"
+                className="group relative block rounded-sm bg-dark-card p-4 border transition-all duration-300 hover:-translate-y-1 hover:scale-[1.03]"
                 style={{ borderColor: `${game.borderColor}33` }}
                 onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLElement).style.borderColor = `${game.borderColor}99`;
-                  (e.currentTarget as HTMLElement).style.boxShadow = `0 0 20px ${game.borderColor}22`;
+                  sounds.onMouseEnter();
+                  (e.currentTarget as HTMLElement).style.borderColor = `${game.borderColor}cc`;
+                  (e.currentTarget as HTMLElement).style.boxShadow = `0 0 30px ${game.borderColor}40, 0 0 60px ${game.borderColor}15`;
                 }}
                 onMouseLeave={(e) => {
                   (e.currentTarget as HTMLElement).style.borderColor = `${game.borderColor}33`;
                   (e.currentTarget as HTMLElement).style.boxShadow = "";
                 }}
+                onClick={() => {
+                  sounds.onClick();
+                  setFlashCard(game.href);
+                  setTimeout(() => setFlashCard(null), 250);
+                }}
               >
+                {/* Select flash overlay */}
+                {flashCard === game.href && (
+                  <div
+                    className="card-flash absolute inset-0 rounded-sm pointer-events-none z-10"
+                    style={{ background: game.borderColor }}
+                  />
+                )}
+
                 <span
                   className="absolute top-2 right-2 font-pixel text-[0.4rem] px-1.5 py-0.5 border"
                   style={{ color: game.borderColor, borderColor: `${game.borderColor}55` }}
@@ -675,9 +690,10 @@ export default function HomePage() {
                   {game.emoji}
                 </div>
                 <h3
-                  className="font-pixel text-[0.5rem] mb-2 tracking-wider leading-relaxed"
+                  className="font-pixel text-[0.5rem] mb-2 tracking-wider leading-relaxed flex items-center gap-1.5"
                   style={{ color: game.borderColor }}
                 >
+                  <span className="cursor-blink opacity-0 group-hover:opacity-100">►</span>
                   {game.title}
                 </h3>
                 <p className="text-[0.6rem] text-gray-400 leading-relaxed hidden sm:block">

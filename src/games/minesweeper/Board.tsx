@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useRef, useEffect } from "react";
+import React, { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import Cell from "./Cell";
 import { CellState, GameState } from "./types";
 
@@ -11,6 +11,25 @@ interface BoardProps {
   onFlag: (row: number, col: number) => void;
   onChord: (row: number, col: number) => void;
   flagMode?: boolean;
+  rotated?: boolean; // portrait mode for hard on mobile
+}
+
+const H_OVERHEAD = 50;  // GameLayout p-4×2 (32) + board border+padding (10) + buffer (8)
+const V_OVERHEAD = 220; // top bar + bottom controls
+
+function calcCellSize(
+  rows: number,
+  cols: number,
+  winW: number,
+  winH: number,
+  rotated: boolean
+): number {
+  // When rotated, board renders as cols×rows (tall portrait)
+  const effectiveCols = rotated ? rows : cols;
+  const effectiveRows = rotated ? cols : rows;
+  const sizeByW = Math.floor((winW - H_OVERHEAD) / effectiveCols);
+  const sizeByH = Math.floor((winH - V_OVERHEAD) / effectiveRows);
+  return Math.max(Math.min(sizeByW, sizeByH, 32), 8);
 }
 
 export default function Board({
@@ -20,33 +39,37 @@ export default function Board({
   onFlag,
   onChord,
   flagMode = false,
+  rotated = false,
 }: BoardProps) {
   const [highlighted, setHighlighted] = useState<Set<string>>(new Set());
-  const [cellSize, setCellSize] = useState(32);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const rows = board.length;
   const cols = board[0]?.length || 0;
 
-  // Calculate cell size to fit viewport
+  const [winW, setWinW] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth : 1200
+  );
+  const [winH, setWinH] = useState(() =>
+    typeof window !== "undefined" ? window.innerHeight : 800
+  );
+
   useEffect(() => {
-    function calcSize() {
-      const maxW = window.innerWidth - 32; // padding
-      const maxH = window.innerHeight - 280; // header, controls, status
-      const sizeByW = Math.floor(maxW / cols);
-      const sizeByH = Math.floor(maxH / rows);
-      const size = Math.min(sizeByW, sizeByH, 32); // max 32px
-      // min 10px so hard mode (30 cols) never overflows on mobile
-      setCellSize(Math.max(size, 10));
-    }
-    calcSize();
-    window.addEventListener("resize", calcSize);
-    return () => window.removeEventListener("resize", calcSize);
-  }, [rows, cols]);
+    const onResize = () => {
+      setWinW(window.innerWidth);
+      setWinH(window.innerHeight);
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  const cellSize = useMemo(
+    () => calcCellSize(rows, cols, winW, winH, rotated),
+    [rows, cols, winW, winH, rotated]
+  );
 
   const handleChord = useCallback(
     (row: number, col: number) => {
-      // Collect unrevealed, unflagged neighbors
       const neighbors = new Set<string>();
       for (let dr = -1; dr <= 1; dr++) {
         for (let dc = -1; dc <= 1; dc++) {
@@ -61,16 +84,9 @@ export default function Board({
           }
         }
       }
-
       if (neighbors.size === 0) return;
-
-      // Show bounce highlight
       setHighlighted(neighbors);
-
-      // Clear previous timeout
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
-
-      // After bounce animation, clear highlight and attempt chord
       timeoutRef.current = setTimeout(() => {
         setHighlighted(new Set());
         onChord(row, col);
@@ -79,25 +95,37 @@ export default function Board({
     [board, rows, cols, onChord]
   );
 
+  // Normal render: outer=rows, inner=cols → board[r][c]
+  // Rotated render: outer=cols, inner=rows → board[r][c] with r/c swapped
+  // Coordinates passed to handlers always use original (row, col) from logic
+  const renderRows = rotated ? cols : rows;
+  const renderCols = rotated ? rows : cols;
+
   return (
     <div className="border border-neon-green/30 p-1 inline-block">
-      {board.map((row, r) => (
-        <div key={r} className="flex">
-          {row.map((cell, c) => (
-            <Cell
-              key={`${r}-${c}`}
-              cell={cell}
-              row={r}
-              col={c}
-              gameState={gameState}
-              onReveal={onReveal}
-              onFlag={onFlag}
-              onChord={handleChord}
-              isHighlighted={highlighted.has(`${r}-${c}`)}
-              cellSize={cellSize}
-              flagMode={flagMode}
-            />
-          ))}
+      {Array.from({ length: renderRows }, (_, visualR) => (
+        <div key={visualR} className="flex">
+          {Array.from({ length: renderCols }, (_, visualC) => {
+            // Map visual position back to logical (row, col)
+            const logicR = rotated ? visualC : visualR;
+            const logicC = rotated ? visualR : visualC;
+            const cell = board[logicR][logicC];
+            return (
+              <Cell
+                key={`${logicR}-${logicC}`}
+                cell={cell}
+                row={logicR}
+                col={logicC}
+                gameState={gameState}
+                onReveal={onReveal}
+                onFlag={onFlag}
+                onChord={handleChord}
+                isHighlighted={highlighted.has(`${logicR}-${logicC}`)}
+                cellSize={cellSize}
+                flagMode={flagMode}
+              />
+            );
+          })}
         </div>
       ))}
     </div>

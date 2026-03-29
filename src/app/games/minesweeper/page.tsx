@@ -27,9 +27,14 @@ export default function MinesweeperPage() {
   );
   const [flagMode, setFlagMode] = useState(false);
   const [isTouchDevice, setIsTouchDevice] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     setIsTouchDevice("ontouchstart" in window || navigator.maxTouchPoints > 0);
+    setIsMobile(window.innerWidth < 768);
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
   }, []);
 
   // Lazy-init audio on first user gesture (required by browser autoplay policy)
@@ -230,19 +235,20 @@ export default function MinesweeperPage() {
           )}
         </div>
 
-        {/* Board */}
-        <div className="w-full overflow-x-auto">
-        <div className={`relative transition-all duration-500 inline-block
-          ${state.gameState === "lost" ? "animate-[screenShake_0.5s_ease-in-out]" : ""}`}>
-          <Board
-            board={state.board}
-            gameState={state.gameState}
-            onReveal={handleReveal}
-            onFlag={handleFlag}
-            onChord={handleChord}
-            flagMode={flagMode}
-          />
-        </div>
+        {/* Board — hard mode rotates to portrait on mobile */}
+        <div className="w-full overflow-x-auto flex justify-center">
+          <div className={`relative transition-all duration-500
+            ${state.gameState === "lost" ? "animate-[screenShake_0.5s_ease-in-out]" : ""}`}>
+            <Board
+              board={state.board}
+              gameState={state.gameState}
+              onReveal={handleReveal}
+              onFlag={handleFlag}
+              onChord={handleChord}
+              flagMode={flagMode}
+              rotated={difficulty === "hard" && isMobile}
+            />
+          </div>
         </div>
 
         {/* Win overlay */}

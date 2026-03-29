@@ -2,16 +2,17 @@ import { ImageResponse } from "next/og";
 
 export const runtime = "edge";
 
-const W = 820;
-const H = 312;
+// Render at 2× resolution so Facebook scales down cleanly (no blur)
+const W = 1640;
+const H = 624;
 
 const NEON_GREEN = "#39ff14";
 const TEXT_COLOR = "#ffffff";
 const MUTED      = "#666666";
 const DOT_COLOR  = "rgba(57,255,20,0.10)";
 
-const GAP_SM = "10px";  // outer column gap
-const GAP_MD = "14px";  // inner row gap (emoji row + wordmark row)
+const GAP_SM = "20px";
+const GAP_MD = "28px";
 
 export async function GET() {
   try {
@@ -41,7 +42,7 @@ export async function GET() {
           />
 
           {/* Game emoji row */}
-          <div style={{ display: "flex", gap: GAP_MD, fontSize: "28px" }}>
+          <div style={{ display: "flex", gap: GAP_MD, fontSize: "56px" }}>
             <span>🎮</span>
             <span>🕹️</span>
             <span>🎲</span>
@@ -49,18 +50,18 @@ export async function GET() {
 
           {/* Wordmark: < HeoLab /> */}
           <div style={{ display: "flex", alignItems: "center", gap: GAP_MD }}>
-            <span style={{ color: NEON_GREEN, fontSize: "36px", fontWeight: "bold" }}>{"<"}</span>
-            <span style={{ color: TEXT_COLOR, fontSize: "54px", fontWeight: "bold" }}>HeoLab</span>
-            <span style={{ color: NEON_GREEN, fontSize: "36px", fontWeight: "bold" }}>{"/>"}</span>
+            <span style={{ color: NEON_GREEN, fontSize: "72px", fontWeight: "bold" }}>{"<"}</span>
+            <span style={{ color: TEXT_COLOR, fontSize: "108px", fontWeight: "bold" }}>HeoLab</span>
+            <span style={{ color: NEON_GREEN, fontSize: "72px", fontWeight: "bold" }}>{"/>"}</span>
           </div>
 
           {/* Tagline */}
-          <div style={{ color: NEON_GREEN, fontSize: "16px" }}>
+          <div style={{ color: NEON_GREEN, fontSize: "32px" }}>
             Play. Explore. Have Fun.
           </div>
 
           {/* Subtitle */}
-          <div style={{ color: MUTED, fontSize: "13px" }}>
+          <div style={{ color: MUTED, fontSize: "26px" }}>
             Free Browser Games · heolab.dev
           </div>
         </div>

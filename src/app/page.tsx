@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
+import { usePixelSound } from "@/hooks/usePixelSound";
 
 // ── Types ────────────────────────────────────────────────
 type Category = "ALL" | "PUZZLE" | "CASUAL" | "ARCADE";
@@ -196,6 +197,7 @@ const TABS: Category[] = ["ALL", "PUZZLE", "CASUAL", "ARCADE"];
 // ── Component ────────────────────────────────────────────
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState<Category>("ALL");
+  const sounds = usePixelSound();
 
   // Mouse interaction refs (no state → no re-renders)
   const cursorRef       = useRef<HTMLDivElement>(null);
@@ -591,13 +593,18 @@ export default function HomePage() {
               Free browser games, crafted with care. No download. No account.
             </p>
 
-            <Link
-              href="#games"
+            <button
               className="mt-2 px-8 py-3 border border-neon-green text-neon-green font-pixel text-[0.6rem]
                 hover:bg-neon-green hover:text-black transition-all duration-200 tracking-widest"
+              onClick={(e) => {
+                sounds.onClick();
+                e.preventDefault();
+                document.getElementById("games")?.scrollIntoView({ behavior: "smooth" });
+              }}
+              onMouseEnter={sounds.onMouseEnter}
             >
               PLAY NOW
-            </Link>
+            </button>
 
             <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-2">
               {[

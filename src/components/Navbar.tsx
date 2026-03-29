@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { usePixelSound } from "@/hooks/usePixelSound";
 
 export default function Navbar() {
+  const sounds = usePixelSound();
   return (
     <nav className="sticky top-0 z-50 bg-dark-bg/80 backdrop-blur-md border-b border-dark-border">
       <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
@@ -31,6 +33,7 @@ export default function Navbar() {
             href="/games"
             className="font-pixel text-[0.45rem] px-3 py-1.5 border border-neon-green text-neon-green
               hover:bg-neon-green hover:text-black transition-all duration-200 tracking-widest"
+            {...sounds}
           >
             ▶ PLAY
           </Link>

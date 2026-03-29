@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 100" width="400" height="100">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&amp;display=swap');
+    </style>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="400" height="100" fill="#0a0a0a" rx="8"/>
+
+  <!-- Dot grid -->
+  <defs>
+    <pattern id="dots" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
+      <circle cx="1" cy="1" r="1" fill="rgba(57,255,20,0.08)"/>
+    </pattern>
+  </defs>
+  <rect width="400" height="100" fill="url(#dots)"/>
+
+  <!-- < bracket -->
+  <text
+    x="32"
+    y="66"
+    font-family="'Press Start 2P', monospace"
+    font-size="32"
+    fill="#39ff14"
+    filter="url(#glow)"
+  >&lt;</text>
+
+  <!-- HeoLab wordmark -->
+  <text
+    x="80"
+    y="68"
+    font-family="'Arial Black', 'Helvetica Neue', Arial, sans-serif"
+    font-size="48"
+    font-weight="900"
+    fill="white"
+    letter-spacing="-1"
+  >HeoLab</text>
+
+  <!-- /> bracket -->
+  <text
+    x="318"
+    y="66"
+    font-family="'Press Start 2P', monospace"
+    font-size="32"
+    fill="#39ff14"
+    filter="url(#glow)"
+  >/&gt;</text>
+</svg>

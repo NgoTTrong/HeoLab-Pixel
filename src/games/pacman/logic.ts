@@ -38,8 +38,8 @@ const DIR_VECTORS: Record<Direction, Position> = {
 
 const MAZE_WIDTH = 28;
 
-// Pac-Man default start position (classic: row 23, col 13)
-const PACMAN_START: Position = { x: 13, y: 23 };
+// Pac-Man default start position (below ghost house T-junction)
+const PACMAN_START: Position = { x: 14, y: 21 };
 
 // Ghost house centre (for returning eaten ghosts)
 const GHOST_HOUSE_CENTER: Position = { x: 13, y: 14 };

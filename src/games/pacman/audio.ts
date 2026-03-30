@@ -7,6 +7,11 @@ export interface PacmanAudio {
   playDeath: () => void;
   playLevelComplete: () => void;
   playFruit: () => void;
+  playHeartbeat: (intensity: "far" | "mid" | "near") => void;
+  playFootstep: (volume: number) => void;
+  playComboTick: (combo: number) => void;
+  playMilestone: () => void;
+  playComboBreak: () => void;
   setMuted: (m: boolean) => void;
 }
 
@@ -46,6 +51,37 @@ export function createPacmanAudio(): PacmanAudio {
       if (!ok()) return;
       tone(ctx, "sine", 500, 900, 0.12, 0.15);
       tone(ctx, "sine", 900, 500, 0.12, 0.15, 0.12);
+    },
+    playHeartbeat(intensity) {
+      if (!ok()) return;
+      // Two-beat heartbeat pattern, speed varies by intensity
+      const gaps = { far: 0.12, mid: 0.08, near: 0.04 };
+      const gap = gaps[intensity];
+      tone(ctx, "sine", 60, 40, 0.08, 0.10);
+      tone(ctx, "sine", 55, 35, 0.08, 0.08, gap);
+    },
+    playFootstep(volume) {
+      if (!ok()) return;
+      noise(ctx, 0.04, volume * 0.08);
+    },
+    playComboTick(combo) {
+      if (!ok()) return;
+      if (combo % 5 !== 0 || combo === 0) return;
+      // Rising pitch every 5 combo
+      const pitch = 300 + Math.min(combo, 100) * 5;
+      tone(ctx, "square", pitch, pitch + 100, 0.04, 0.08);
+    },
+    playMilestone() {
+      if (!ok()) return;
+      // Ascending fanfare
+      [500, 700, 900, 1100, 1300].forEach((f, i) =>
+        tone(ctx, "square", f, f + 50, 0.08, 0.16, i * 0.06)
+      );
+    },
+    playComboBreak() {
+      if (!ok()) return;
+      // Short descending sad tone
+      tone(ctx, "sawtooth", 300, 150, 0.12, 0.08);
     },
     setMuted(m) { muted = m; },
   };

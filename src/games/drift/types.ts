@@ -111,6 +111,8 @@ export interface PlayerState {
   powerUp: PowerUpType | null;
   /** active shield remaining ms */
   shieldMs: number;
+  /** active magnet remaining ms */
+  magnetMs: number;
   /** is currently spinning out from collision */
   spinOut: boolean;
   spinOutMs: number;
@@ -157,6 +159,12 @@ export interface GameState {
   driftScore: number;
   /** final score (Race mode) */
   score: number;
+  /** ghost recording of player Z for replay */
+  ghostRecording: number[];
+  /** player input state */
+  steerDir: number;
+  accelPressed: boolean;
+  brakePressed: boolean;
 }
 
 // -- Actions --------------------------------------------------------

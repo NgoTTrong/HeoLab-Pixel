@@ -115,6 +115,16 @@ const games = [
     category: "ARCADE" as Category,
     available: true,
   },
+  {
+    title: "PIXEL DRIFT",
+    subtitle: "Drift through neon tracks. Master the boost.",
+    href: "/games/drift",
+    color: "orange",
+    emoji: "🏎️",
+    tag: "ARCADE",
+    category: "ARCADE" as Category,
+    available: true,
+  },
 ];
 
 const TABS: Category[] = ["ALL", "PUZZLE", "CASUAL", "ARCADE"];

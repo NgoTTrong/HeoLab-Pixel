@@ -118,6 +118,15 @@ const allGames = [
     tag: "ARCADE",
     category: "ARCADE" as Category,
   },
+  {
+    title: "PIXEL DRIFT",
+    subtitle: "Drift through neon tracks. Master the boost.",
+    href: "/games/drift",
+    borderColor: "#f97316",
+    emoji: "🏎️",
+    tag: "ARCADE",
+    category: "ARCADE" as Category,
+  },
 ];
 
 const floatingEmojis = [
@@ -150,7 +159,7 @@ const SHIP_CONFIGS = [
 const LASER_COLORS = ["#39ff14", "#00d4ff", "#ff2d95"] as const;
 
 const stats = [
-  { number: "10", label: "GAMES" },
+  { number: "11", label: "GAMES" },
   { number: "∞",  label: "PLAYTIME" },
   { number: "0",  label: "DOWNLOADS" },
   { number: "0",  label: "ADS" },
@@ -617,7 +626,7 @@ export default function HomePage() {
 
             <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-2">
               {[
-                ["10", "GAMES"],
+                ["11", "GAMES"],
                 ["FREE", "FOREVER"],
                 ["0", "DOWNLOADS"],
                 ["0", "ADS"],

@@ -25,6 +25,9 @@ import {
   TICK_MS,
   FOG_RADIUS,
 } from "./config";
+import { updateVisited, createVisited, getVisRadius } from "./fog";
+import { onDotEaten, onGhostEaten, shouldBreakCombo, tickComboEffects } from "./combo";
+import { recordTurn, getEvolutionTier, getEvolvedTarget, getPincerTarget, forgetHistory } from "./evolution";
 
 // ---------------------------------------------------------------------------
 // Direction helpers
@@ -175,6 +178,11 @@ function movePacman(state: PacmanState): PacmanState {
   let { frightenedTimeLeft, fruitActive, fruitTimer, status } = state;
   let ghosts = state.ghosts;
   const { modifiers, tick, level } = state;
+  const isSurvival = modifiers.gameMode === "survival";
+
+  // Capture old position for survival mode tracking
+  const oldPos = { ...pacman };
+  const oldDir = pacDir;
 
   // 1. Try to switch to pending direction
   if (pendingDir !== pacDir) {
@@ -195,6 +203,20 @@ function movePacman(state: PacmanState): PacmanState {
     pacman = { x: nx, y: ny };
   }
 
+  const pacMoved = pacman.x !== oldPos.x || pacman.y !== oldPos.y;
+
+  // Survival: combo tracking variables
+  let combo = state.combo;
+  let comboTimer = state.comboTimer;
+  let comboEffects = state.comboEffects;
+  let lastMilestone = state.lastMilestone;
+  let milestonePopup = state.milestonePopup;
+  let milestonePopupTimer = state.milestonePopupTimer;
+  let visited = state.visited;
+  let visRadius = state.visRadius;
+  let turnHistory = state.turnHistory;
+  let dotEaten = false;
+
   // 3. Handle tile contents
   const cell = maze[pacman.y][pacman.x];
 
@@ -207,6 +229,20 @@ function movePacman(state: PacmanState): PacmanState {
     );
     score += SCORE.dot;
     dotsLeft--;
+    dotEaten = true;
+
+    // Survival: combo system for dots
+    if (isSurvival) {
+      const comboResult = onDotEaten(combo, comboEffects, lastMilestone);
+      score += comboResult.score;
+      combo = comboResult.combo;
+      comboEffects = comboResult.comboEffects;
+      lastMilestone = comboResult.lastMilestone;
+      if (comboResult.milestonePopup) {
+        milestonePopup = comboResult.milestonePopup;
+        milestonePopupTimer = comboResult.milestonePopupTimer;
+      }
+    }
   } else if (cell === 3) {
     // Power pellet
     maze = maze.map((row, ry) =>
@@ -264,6 +300,33 @@ function movePacman(state: PacmanState): PacmanState {
     }
   }
 
+  // Survival mode: update fog, combo timer, turn history
+  if (isSurvival) {
+    // Update visited tiles
+    visited = updateVisited(visited, pacman);
+
+    // Combo timer: reset on dot eat, increment otherwise
+    if (dotEaten) {
+      comboTimer = 0;
+    } else {
+      comboTimer++;
+    }
+
+    // Break combo if pac-man hasn't eaten a dot in time
+    if (shouldBreakCombo(comboTimer) && combo > 0) {
+      combo = 0;
+      lastMilestone = 0;
+    }
+
+    // Update visibility radius
+    visRadius = getVisRadius(FOG_RADIUS, frightenedTimeLeft, comboEffects.visionBoost);
+
+    // Record turn at intersections when pac-man changed direction at a new position
+    if (pacMoved && pacDir !== oldDir) {
+      turnHistory = recordTurn(turnHistory, pacman, oldDir, pacDir, maze);
+    }
+  }
+
   return {
     ...state,
     pacman,
@@ -278,6 +341,10 @@ function movePacman(state: PacmanState): PacmanState {
     fruitActive,
     fruitTimer,
     status,
+    pacMoved,
+    ...(isSurvival
+      ? { combo, comboTimer, comboEffects, lastMilestone, milestonePopup, milestonePopupTimer, visited, visRadius, turnHistory }
+      : {}),
   };
 }
 
@@ -386,7 +453,28 @@ function updateGhosts(state: PacmanState): PacmanState {
     // 5. Choose direction based on mode
     if (g.mode === "frightened") {
       g.dir = chooseFrightenedDirection(g, state.maze);
+    } else if (state.modifiers.gameMode === "survival" && state.evolutionTier !== "basic") {
+      // Survival mode with evolution: try evolved targeting first
+      let usedEvolvedTarget = false;
+      const evolvedTarget = getEvolvedTarget(g, pacman, pacDir, state.evolutionTier, state.turnHistory, state.maze);
+      if (evolvedTarget) {
+        g.dir = chooseDirection(g, evolvedTarget, state.maze);
+        usedEvolvedTarget = true;
+      } else if (state.evolutionTier === "evolved") {
+        // Try pincer coordination
+        const pincerTarget = getPincerTarget(g, pacman, pacDir, state.ghosts, state.maze);
+        if (pincerTarget) {
+          g.dir = chooseDirection(g, pincerTarget, state.maze);
+          usedEvolvedTarget = true;
+        }
+      }
+      if (!usedEvolvedTarget) {
+        // Fallback to normal targeting
+        const target = getGhostTarget(g, pacman, pacDir, blinky);
+        g.dir = chooseDirection(g, target, state.maze);
+      }
     } else {
+      // Classic mode: unchanged
       const target = getGhostTarget(g, pacman, pacDir, blinky);
       g.dir = chooseDirection(g, target, state.maze);
     }
@@ -415,6 +503,9 @@ function checkCollisions(state: PacmanState): PacmanState {
   let { score, lives, ghostCombo, status } = state;
   let ghosts = [...state.ghosts];
   let needReset = false;
+  const isSurvival = state.modifiers.gameMode === "survival";
+  let combo = state.combo;
+  let turnHistory = state.turnHistory;
 
   for (let i = 0; i < ghosts.length; i++) {
     const ghost = ghosts[i];
@@ -438,6 +529,11 @@ function checkCollisions(state: PacmanState): PacmanState {
         eatenReturning: true,
         frightenedTimer: 0,
       };
+
+      // Survival: ghost eaten contributes to combo
+      if (isSurvival) {
+        combo = onGhostEaten(combo);
+      }
     } else if (ghost.mode === "chase" || ghost.mode === "scatter") {
       // Pac-Man dies
       lives--;
@@ -446,6 +542,12 @@ function checkCollisions(state: PacmanState): PacmanState {
       } else {
         needReset = true;
       }
+
+      // Survival: forget some learning data on death
+      if (isSurvival) {
+        turnHistory = forgetHistory(turnHistory);
+      }
+
       break; // Only process one death per tick
     }
   }
@@ -466,10 +568,14 @@ function checkCollisions(state: PacmanState): PacmanState {
       frightenedTimeLeft: 0,
       modeTimer: 0,
       modeIndex: 0,
+      combo: isSurvival ? 0 : state.combo,
+      comboTimer: isSurvival ? 0 : state.comboTimer,
+      lastMilestone: isSurvival ? 0 : state.lastMilestone,
+      turnHistory,
     };
   }
 
-  return { ...state, score, lives, ghostCombo, status, ghosts };
+  return { ...state, score, lives, ghostCombo, status, ghosts, combo, turnHistory };
 }
 
 // ---------------------------------------------------------------------------
@@ -500,6 +606,29 @@ export function pacmanReducer(
       if (s.status !== "playing") return { ...s, tick: s.tick + 1 };
       s = updateGhosts(s);
       s = checkCollisions(s);
+
+      // Survival mode: tick combo effects, milestone popup, evolution, mini-power
+      if (s.modifiers.gameMode === "survival") {
+        const newEffects = tickComboEffects(s.comboEffects);
+        const popupTimer = Math.max(0, s.milestonePopupTimer - 1);
+        const popup = popupTimer > 0 ? s.milestonePopup : null;
+        const tier = getEvolutionTier(s.level);
+
+        // Apply combo mini-power effect: frighten ghosts if active and not already frightened
+        let ghosts = s.ghosts;
+        if (newEffects.miniPower > 0 && s.frightenedTimeLeft === 0) {
+          const ticksPerSecond = 1000 / TICK_MS;
+          const frightenTicks = Math.round(1 * ticksPerSecond); // 1 second mini-frighten
+          ghosts = ghosts.map((g) => {
+            if (g.mode === "eaten" || g.eatenReturning || g.mode === "frightened") return g;
+            return { ...g, mode: "frightened" as const, frightenedTimer: frightenTicks };
+          });
+          s = { ...s, ghosts, frightenedTimeLeft: frightenTicks };
+        }
+
+        s = { ...s, comboEffects: newEffects, milestonePopupTimer: popupTimer, milestonePopup: popup, evolutionTier: tier };
+      }
+
       return { ...s, tick: s.tick + 1 };
     }
 
@@ -507,6 +636,7 @@ export function pacmanReducer(
       const nextLevel = state.level + 1;
       const maze = getMaze(state.modifiers.mazeStyle);
       const ghosts = createGhosts(state.modifiers.ghostCount, maze);
+      const isSurvival = state.modifiers.gameMode === "survival";
 
       return {
         ...state,
@@ -525,6 +655,21 @@ export function pacmanReducer(
         fruitTimer: 0,
         tick: 0,
         status: "playing",
+        // Survival: reset per-level state, preserve turnHistory across levels
+        ...(isSurvival
+          ? {
+              visited: createVisited(31, 28),
+              visRadius: FOG_RADIUS,
+              combo: 0,
+              comboTimer: 0,
+              comboEffects: { speedBoost: 0, visionBoost: 0, miniPower: 0 },
+              lastMilestone: 0,
+              milestonePopup: null,
+              milestonePopupTimer: 0,
+              evolutionTier: getEvolutionTier(nextLevel),
+              // turnHistory preserved from state spread
+            }
+          : {}),
       };
     }
 

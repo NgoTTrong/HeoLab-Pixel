@@ -33,6 +33,178 @@ function isTouchDevice() {
 }
 
 // ---------------------------------------------------------------------------
+// Settings Panel
+// ---------------------------------------------------------------------------
+
+interface SettingOption<T> {
+  label: string;
+  value: T;
+}
+
+interface SettingRowProps<T> {
+  label: string;
+  options: SettingOption<T>[];
+  current: T;
+  onChange: (v: T) => void;
+}
+
+function SettingRow<T extends string | number>({
+  label,
+  options,
+  current,
+  onChange,
+}: SettingRowProps<T>) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-[0.45rem] text-gray-400 uppercase tracking-wider">
+        {label}
+      </span>
+      <div className="flex flex-wrap gap-1">
+        {options.map((opt) => (
+          <button
+            key={String(opt.value)}
+            onClick={() => onChange(opt.value)}
+            className="px-2 py-1 text-[0.45rem] border uppercase transition-all duration-150"
+            style={{
+              borderColor:
+                current === opt.value ? "#f97316" : "#2a2a4a",
+              backgroundColor:
+                current === opt.value ? "#f9731620" : "transparent",
+              color: current === opt.value ? "#f97316" : "#888",
+              fontFamily: "var(--font-pixel), monospace",
+            }}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SettingsPanel({
+  modifiers,
+  onChange,
+  onClose,
+}: {
+  modifiers: GameModifiers;
+  onChange: (m: GameModifiers) => void;
+  onClose: () => void;
+}) {
+  const update = <K extends keyof GameModifiers>(
+    key: K,
+    value: GameModifiers[K],
+  ) => {
+    onChange({ ...modifiers, [key]: value });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center animate-[overlayIn_0.3s_ease-out]">
+      <div
+        className="absolute inset-0 bg-dark-bg/60 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <div
+        className="relative w-[90vw] max-w-sm max-h-[85vh] overflow-y-auto border border-neon-orange/30 p-4 flex flex-col gap-3"
+        style={{ backgroundColor: "#0d0d1a" }}
+      >
+        <h3 className="text-[0.55rem] neon-text-orange text-center tracking-wider">
+          SETTINGS
+        </h3>
+
+        <SettingRow
+          label="GHOST SPEED"
+          options={[
+            { label: "SLOW", value: "slow" as const },
+            { label: "NORMAL", value: "normal" as const },
+            { label: "FAST", value: "fast" as const },
+            { label: "INSANE", value: "insane" as const },
+          ]}
+          current={modifiers.ghostSpeed}
+          onChange={(v) => update("ghostSpeed", v)}
+        />
+
+        <SettingRow
+          label="POWER TIME"
+          options={[
+            { label: "3S", value: 3 as const },
+            { label: "5S", value: 5 as const },
+            { label: "8S", value: 8 as const },
+            { label: "12S", value: 12 as const },
+          ]}
+          current={modifiers.powerDuration}
+          onChange={(v) => update("powerDuration", v)}
+        />
+
+        <SettingRow
+          label="MAZE"
+          options={[
+            { label: "CLASSIC", value: "classic" as const },
+            { label: "OPEN", value: "open" as const },
+            { label: "TIGHT", value: "tight" as const },
+          ]}
+          current={modifiers.mazeStyle}
+          onChange={(v) => update("mazeStyle", v)}
+        />
+
+        <SettingRow
+          label="GHOSTS"
+          options={[
+            { label: "1", value: 1 as const },
+            { label: "2", value: 2 as const },
+            { label: "3", value: 3 as const },
+            { label: "4", value: 4 as const },
+          ]}
+          current={modifiers.ghostCount}
+          onChange={(v) => update("ghostCount", v)}
+        />
+
+        <SettingRow
+          label="BONUS"
+          options={[
+            { label: "OFF", value: "off" as const },
+            { label: "RARE", value: "rare" as const },
+            { label: "NORMAL", value: "normal" as const },
+            { label: "FREQUENT", value: "frequent" as const },
+          ]}
+          current={modifiers.bonusFrequency}
+          onChange={(v) => update("bonusFrequency", v)}
+        />
+
+        <SettingRow
+          label="LIVES"
+          options={[
+            { label: "1", value: 1 as const },
+            { label: "3", value: 3 as const },
+            { label: "5", value: 5 as const },
+            { label: "99", value: 99 as const },
+          ]}
+          current={modifiers.lives}
+          onChange={(v) => update("lives", v)}
+        />
+
+        <SettingRow
+          label="SPEED RAMP"
+          options={[
+            { label: "OFF", value: "off" as const },
+            { label: "GRADUAL", value: "gradual" as const },
+            { label: "AGGRESSIVE", value: "aggressive" as const },
+          ]}
+          current={modifiers.speedRamp}
+          onChange={(v) => update("speedRamp", v)}
+        />
+
+        <div className="flex justify-center pt-2">
+          <PixelButton color="orange" onClick={onClose}>
+            CLOSE
+          </PixelButton>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
 
@@ -80,13 +252,12 @@ function MazeCell({
       return (
         <div style={{ ...base, backgroundColor: "transparent" }}>
           <div
-            className="animate-pulse"
             style={{
               width: Math.max(4, cellSize * 0.5),
               height: Math.max(4, cellSize * 0.5),
               borderRadius: "50%",
               backgroundColor: "#ffb8ff",
-              boxShadow: "0 0 6px #ff69b4, 0 0 12px #ff69b480",
+              animation: "pelletGlow 1.2s ease-in-out infinite",
             }}
           />
         </div>
@@ -95,17 +266,19 @@ function MazeCell({
       return <div style={{ ...base, backgroundColor: "#0a0a1a" }} />;
     case 5: // tunnel
       return <div style={{ ...base, backgroundColor: "#050510" }} />;
-    case 6: // ghost gate
+    case 6: // ghost gate - thin line
       return (
         <div style={{ ...base, backgroundColor: "transparent", position: "relative" }}>
           <div
             style={{
               position: "absolute",
-              bottom: 0,
-              left: 0,
-              right: 0,
-              height: Math.max(2, cellSize * 0.2),
+              top: "50%",
+              left: "10%",
+              right: "10%",
+              height: Math.max(2, cellSize * 0.15),
               backgroundColor: "#ff69b4",
+              transform: "translateY(-50%)",
+              borderRadius: 1,
             }}
           />
         </div>
@@ -128,9 +301,10 @@ function PacManSprite({
   tick: number;
   cellSize: number;
 }) {
-  // Chomp animation: mouth angle alternates every few ticks
-  const mouthOpen = tick % 6 < 3;
-  const mouthAngle = mouthOpen ? 40 : 5;
+  // Smooth chomp: cycle through mouth angles for fluid animation
+  const chompPhase = tick % 8;
+  const mouthAngles = [5, 15, 30, 40, 45, 40, 30, 15];
+  const mouthAngle = mouthAngles[chompPhase];
 
   // Rotation based on direction
   const rotations: Record<Direction, number> = {
@@ -174,17 +348,18 @@ function PacManSprite({
 
 function GhostSprite({
   ghost,
+  tick,
   cellSize,
 }: {
   ghost: Ghost;
+  tick: number;
   cellSize: number;
 }) {
-  const { pos, mode, eatenReturning, color, frightenedTimer, name } = ghost;
+  const { pos, mode, eatenReturning, color, frightenedTimer } = ghost;
   const size = cellSize * 0.85;
   const offset = (cellSize - size) / 2;
 
   let bodyColor = color;
-  let isFlashing = false;
 
   if (eatenReturning || mode === "eaten") {
     // Eaten: just eyes
@@ -252,18 +427,20 @@ function GhostSprite({
     );
   }
 
+  // Frightened mode: blue, with flashing blue/white when timer is low
+  let isFlashing = false;
   if (mode === "frightened") {
     bodyColor = "#00d4ff";
-    // Flash when timer is low (< 2 seconds worth of ticks)
     const flashThreshold = Math.round((2 * 1000) / TICK_MS);
     if (frightenedTimer > 0 && frightenedTimer < flashThreshold) {
       isFlashing = true;
+      // Alternate blue/white every 3 ticks
+      bodyColor = tick % 6 < 3 ? "#00d4ff" : "#ffffff";
     }
   }
 
   return (
     <div
-      className={isFlashing ? "animate-pulse" : ""}
       style={{
         position: "absolute",
         left: pos.x * cellSize + offset,
@@ -279,6 +456,11 @@ function GhostSprite({
         <path
           d="M4,40 L4,18 A16,16 0 0,1 36,18 L36,40 L30,34 L24,40 L18,34 L12,40 L4,40 Z"
           fill={bodyColor}
+          style={
+            isFlashing
+              ? { animation: "ghostFrightenedFlash 0.25s steps(1) infinite" }
+              : undefined
+          }
         />
         {/* Eyes */}
         {mode !== "frightened" ? (
@@ -291,11 +473,11 @@ function GhostSprite({
         ) : (
           <>
             {/* Frightened face */}
-            <circle cx="14" cy="17" r="2.5" fill="#fff" />
-            <circle cx="26" cy="17" r="2.5" fill="#fff" />
+            <circle cx="14" cy="17" r="2.5" fill={isFlashing && tick % 6 >= 3 ? "#333" : "#fff"} />
+            <circle cx="26" cy="17" r="2.5" fill={isFlashing && tick % 6 >= 3 ? "#333" : "#fff"} />
             <path
               d="M10,28 L14,25 L18,28 L22,25 L26,28 L30,25"
-              stroke="#fff"
+              stroke={isFlashing && tick % 6 >= 3 ? "#333" : "#fff"}
               strokeWidth="1.5"
               fill="none"
             />
@@ -345,6 +527,7 @@ function FruitSprite({
 // ---------------------------------------------------------------------------
 
 export default function PacmanPage() {
+  const [modifiers, setModifiers] = useState<GameModifiers>(DEFAULT_MODIFIERS);
   const [state, dispatch] = useReducer(pacmanReducer, undefined, () =>
     createInitialState(DEFAULT_MODIFIERS),
   );
@@ -354,7 +537,7 @@ export default function PacmanPage() {
     typeof window !== "undefined" && localStorage.getItem("pacman-sound-muted") === "1",
   );
   const [cellSize, setCellSize] = useState(CELL_SIZE);
-  const [modifiers, setModifiers] = useState<GameModifiers>(DEFAULT_MODIFIERS);
+  const [showSettings, setShowSettings] = useState(false);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
@@ -469,6 +652,9 @@ export default function PacmanPage() {
   // Keyboard controls
   const handleKey = useCallback(
     (e: KeyboardEvent) => {
+      // Don't capture keys while settings is open
+      if (showSettings) return;
+
       const map: Record<string, Direction> = {
         ArrowUp: "UP",
         ArrowDown: "DOWN",
@@ -493,7 +679,7 @@ export default function PacmanPage() {
         dispatch({ type: "START", modifiers });
       }
     },
-    [state.status, modifiers],
+    [state.status, modifiers, showSettings],
   );
 
   useEffect(() => {
@@ -539,6 +725,14 @@ export default function PacmanPage() {
       actions={
         <>
           <MuteButton muted={muted} onToggle={() => setMuted((m) => !m)} color="orange" />
+          <button
+            onClick={() => setShowSettings(true)}
+            className="text-sm hover:scale-110 transition-transform"
+            title="Settings"
+            style={{ lineHeight: 1 }}
+          >
+            ⚙️
+          </button>
           <span className="text-[0.5rem] text-gray-400">
             LVL {state.level}
           </span>
@@ -552,6 +746,15 @@ export default function PacmanPage() {
         </>
       }
     >
+      {/* Settings panel */}
+      {showSettings && (
+        <SettingsPanel
+          modifiers={modifiers}
+          onChange={setModifiers}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
+
       {/* Maze board */}
       <div
         className={`relative select-none ${
@@ -596,7 +799,12 @@ export default function PacmanPage() {
         {/* Ghost sprites */}
         {state.status !== "idle" &&
           state.ghosts.map((ghost) => (
-            <GhostSprite key={ghost.name} ghost={ghost} cellSize={cellSize} />
+            <GhostSprite
+              key={ghost.name}
+              ghost={ghost}
+              tick={state.tick}
+              cellSize={cellSize}
+            />
           ))}
 
         {/* Fruit */}
@@ -616,7 +824,10 @@ export default function PacmanPage() {
             <h2 className="text-sm neon-text-orange animate-[victoryGlowOrange_1.5s_ease-in-out_infinite]">
               PIXEL CHOMP
             </h2>
-            <p className="text-[0.5rem] text-neon-orange/60">
+            <p
+              className="text-[0.5rem] text-neon-orange/60"
+              style={{ animation: "idleBlink 1.2s step-end infinite" }}
+            >
               {isTouchDevice() ? "SWIPE TO START" : "PRESS SPACE OR ARROW TO START"}
             </p>
             <PixelButton color="orange" onClick={() => dispatch({ type: "START", modifiers })}>

@@ -11,6 +11,7 @@ const COLOR_HEX: Record<string, string> = {
   pink:   "#ff2d95",
   yellow: "#ffe600",
   blue:   "#00d4ff",
+  orange: "#f97316",
 };
 
 const games = [
@@ -99,6 +100,16 @@ const games = [
     subtitle: "Solo retro spaceship vs pixel alien invaders. Boss every 5 waves!",
     href: "/games/space",
     color: "blue",
+    emoji: "👾",
+    tag: "ARCADE",
+    category: "ARCADE" as Category,
+    available: true,
+  },
+  {
+    title: "PIXEL CHOMP",
+    subtitle: "Navigate pixel mazes and outwit ghost AI.",
+    href: "/games/pacman",
+    color: "orange",
     emoji: "👾",
     tag: "ARCADE",
     category: "ARCADE" as Category,

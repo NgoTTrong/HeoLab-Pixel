@@ -109,6 +109,15 @@ const allGames = [
     tag: "ARCADE",
     category: "ARCADE" as Category,
   },
+  {
+    title: "PIXEL CHOMP",
+    subtitle: "Navigate pixel mazes, gobble rune stones, and outwit ghost AI.",
+    href: "/games/pacman",
+    borderColor: "#f97316",
+    emoji: "👾",
+    tag: "ARCADE",
+    category: "ARCADE" as Category,
+  },
 ];
 
 const floatingEmojis = [
@@ -141,14 +150,13 @@ const SHIP_CONFIGS = [
 const LASER_COLORS = ["#39ff14", "#00d4ff", "#ff2d95"] as const;
 
 const stats = [
-  { number: "9",  label: "GAMES" },
+  { number: "10", label: "GAMES" },
   { number: "∞",  label: "PLAYTIME" },
   { number: "0",  label: "DOWNLOADS" },
   { number: "0",  label: "ADS" },
 ];
 
 const roadmap = [
-  { title: "Pac-Man Clone", emoji: "🐱", status: "COMING SOON" },
   { title: "Pong",          emoji: "🏓", status: "COMING SOON" },
   { title: "Brick Breaker", emoji: "💥", status: "COMING SOON" },
 ];
@@ -609,7 +617,7 @@ export default function HomePage() {
 
             <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-2">
               {[
-                ["9", "GAMES"],
+                ["10", "GAMES"],
                 ["FREE", "FOREVER"],
                 ["0", "DOWNLOADS"],
                 ["0", "ADS"],

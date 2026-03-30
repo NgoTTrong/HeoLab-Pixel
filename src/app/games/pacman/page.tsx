@@ -25,6 +25,7 @@ import type {
   CellType,
   PacmanState,
   Ghost,
+  Position,
 } from "@/games/pacman/types";
 
 const GAME_KEY = "pacman";
@@ -359,14 +360,29 @@ function GhostSprite({
   ghost,
   tick,
   cellSize,
+  evolutionTier,
+  gameMode,
 }: {
   ghost: Ghost;
   tick: number;
   cellSize: number;
+  evolutionTier: "basic" | "aware" | "evolved";
+  gameMode: "classic" | "survival";
 }) {
   const { pos, mode, eatenReturning, color, frightenedTimer } = ghost;
   const size = cellSize * 0.85;
   const offset = (cellSize - size) / 2;
+
+  // Evolution eye styling for survival mode
+  const isSurvival = gameMode === "survival";
+  const eyeGlow =
+    isSurvival && evolutionTier === "evolved"
+      ? "drop-shadow(0 0 5px #ff2d55)"
+      : isSurvival && evolutionTier === "aware"
+        ? "drop-shadow(0 0 3px #ff0)"
+        : undefined;
+  const pupilColor =
+    isSurvival && evolutionTier === "evolved" ? "#ff2d55" : "#00f";
 
   let bodyColor = color;
 
@@ -474,10 +490,10 @@ function GhostSprite({
         {/* Eyes */}
         {mode !== "frightened" ? (
           <>
-            <ellipse cx="14" cy="17" rx="4" ry="5" fill="#fff" />
-            <ellipse cx="26" cy="17" rx="4" ry="5" fill="#fff" />
-            <circle cx="15" cy="18" r="2.5" fill="#00f" />
-            <circle cx="27" cy="18" r="2.5" fill="#00f" />
+            <ellipse cx="14" cy="17" rx="4" ry="5" fill="#fff" style={eyeGlow ? { filter: eyeGlow } : undefined} />
+            <ellipse cx="26" cy="17" rx="4" ry="5" fill="#fff" style={eyeGlow ? { filter: eyeGlow } : undefined} />
+            <circle cx="15" cy="18" r="2.5" fill={pupilColor} />
+            <circle cx="27" cy="18" r="2.5" fill={pupilColor} />
           </>
         ) : (
           <>
@@ -569,6 +585,7 @@ export default function PacmanPage() {
   const prevGhostCountRef = useRef(0);
   const lastProximityRef = useRef(0);
   const prevComboRef = useRef(0);
+  const ghostTrailRef = useRef<Record<string, Position[]>>({});
 
   // Load high score on mount
   useEffect(() => {
@@ -682,6 +699,22 @@ export default function PacmanPage() {
       lastProximityRef.current = now;
     }
   }, [state.tick, state.modifiers.gameMode, state.status, state.pacman, state.ghosts]);
+
+  // Track ghost position history for evolved trail effect
+  useEffect(() => {
+    if (state.modifiers.gameMode !== "survival" || state.evolutionTier !== "evolved") {
+      ghostTrailRef.current = {};
+      return;
+    }
+
+    const trails = { ...ghostTrailRef.current };
+    for (const ghost of state.ghosts) {
+      const key = ghost.name;
+      const prev = trails[key] || [];
+      trails[key] = [ghost.pos, ...prev].slice(0, 3);
+    }
+    ghostTrailRef.current = trails;
+  }, [state.tick]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Track combo changes for audio
   useEffect(() => {
@@ -811,6 +844,13 @@ export default function PacmanPage() {
               </span>
             ))}
           </span>
+          {state.modifiers.gameMode === "survival" && state.evolutionTier !== "basic" && (
+            <span className={`text-[0.45rem] ${
+              state.evolutionTier === "evolved" ? "text-red-400" : "text-yellow-400"
+            }`}>
+              {state.evolutionTier === "aware" ? "AWARE" : "EVOLVED"}
+            </span>
+          )}
         </>
       }
     >
@@ -886,6 +926,30 @@ export default function PacmanPage() {
           />
         )}
 
+        {/* Ghost trails (evolved survival mode) */}
+        {state.modifiers.gameMode === "survival" && state.evolutionTier === "evolved" &&
+          state.status !== "idle" &&
+          state.ghosts.map((ghost) => {
+            const ghostOpacity = getCellOpacity(ghost.pos.x, ghost.pos.y, state.pacman, state.visRadius, state.visited, 0);
+            if (ghostOpacity === 0) return null;
+            return ghostTrailRef.current[ghost.name]?.map((trailPos, i) => (
+              <div
+                key={`trail-${ghost.name}-${i}`}
+                style={{
+                  position: "absolute",
+                  left: trailPos.x * cellSize,
+                  top: trailPos.y * cellSize,
+                  width: cellSize,
+                  height: cellSize,
+                  backgroundColor: ghost.color,
+                  opacity: [0.25, 0.12, 0.05][i] ?? 0,
+                  borderRadius: "40% 40% 0 0",
+                  zIndex: 4,
+                }}
+              />
+            ));
+          })}
+
         {/* Ghost sprites */}
         {state.status !== "idle" &&
           state.ghosts.map((ghost) => {
@@ -899,6 +963,8 @@ export default function PacmanPage() {
                   ghost={ghost}
                   tick={state.tick}
                   cellSize={cellSize}
+                  evolutionTier={state.evolutionTier}
+                  gameMode={state.modifiers.gameMode}
                 />
               </div>
             );

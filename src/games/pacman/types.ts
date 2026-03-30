@@ -41,6 +41,7 @@ export interface PacmanState {
   fruitActive: boolean;
   fruitTimer: number;
   tick: number;
+  modifiers: GameModifiers;
 }
 
 export interface GameModifiers {

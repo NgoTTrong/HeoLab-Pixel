@@ -4,7 +4,7 @@ import React from "react";
 import Link from "next/link";
 import PixelButton from "./PixelButton";
 
-type GameColor = "green" | "pink" | "yellow" | "blue";
+type GameColor = "green" | "pink" | "yellow" | "blue" | "orange";
 
 interface GameLayoutProps {
   title: string;

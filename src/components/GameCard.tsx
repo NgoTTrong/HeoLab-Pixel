@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-type CardColor = "green" | "pink" | "yellow" | "blue";
+type CardColor = "green" | "pink" | "yellow" | "blue" | "orange";
 
 interface GameCardProps {
   title: string;
@@ -16,6 +16,7 @@ const borderColorMap: Record<CardColor, string> = {
   pink: "border-neon-pink",
   yellow: "border-neon-yellow",
   blue: "border-neon-blue",
+  orange: "border-neon-orange",
 };
 
 const hoverShadowMap: Record<CardColor, string> = {
@@ -23,6 +24,7 @@ const hoverShadowMap: Record<CardColor, string> = {
   pink: "hover:shadow-[0_0_20px_rgba(255,45,149,0.3)]",
   yellow: "hover:shadow-[0_0_20px_rgba(255,230,0,0.3)]",
   blue: "hover:shadow-[0_0_20px_rgba(0,212,255,0.3)]",
+  orange: "hover:shadow-[0_0_20px_rgba(249,115,22,0.3)]",
 };
 
 const tagColorMap: Record<CardColor, string> = {
@@ -30,6 +32,7 @@ const tagColorMap: Record<CardColor, string> = {
   pink: "bg-neon-pink/20 text-neon-pink",
   yellow: "bg-neon-yellow/20 text-neon-yellow",
   blue: "bg-neon-blue/20 text-neon-blue",
+  orange: "bg-neon-orange/20 text-neon-orange",
 };
 
 export default function GameCard({

@@ -5,6 +5,7 @@
   --neon-pink: #ff2d95;
   --neon-yellow: #ffe600;
   --neon-blue: #00d4ff;
+  --neon-orange: #f97316;
   --dark-bg: #0a0a0a;
   --dark-card: #1a1a2e;
   --dark-border: #2a2a4a;
@@ -15,6 +16,7 @@
   --color-neon-pink: var(--neon-pink);
   --color-neon-yellow: var(--neon-yellow);
   --color-neon-blue: var(--neon-blue);
+  --color-neon-orange: var(--neon-orange);
   --color-dark-bg: var(--dark-bg);
   --color-dark-card: var(--dark-card);
   --color-dark-border: var(--dark-border);
@@ -88,6 +90,7 @@ body {
 .neon-text-pink { --neon-color: var(--neon-pink); color: var(--neon-pink); }
 .neon-text-yellow { --neon-color: var(--neon-yellow); color: var(--neon-yellow); }
 .neon-text-blue { --neon-color: var(--neon-blue); color: var(--neon-blue); }
+.neon-text-orange { --neon-color: var(--neon-orange); color: var(--neon-orange); }
 
 /* Neon border effect */
 .neon-border {
@@ -100,6 +103,7 @@ body {
 .neon-border-pink { --neon-color: var(--neon-pink); border-color: var(--neon-pink); }
 .neon-border-yellow { --neon-color: var(--neon-yellow); border-color: var(--neon-yellow); }
 .neon-border-blue { --neon-color: var(--neon-blue); border-color: var(--neon-blue); }
+.neon-border-orange { --neon-color: var(--neon-orange); border-color: var(--neon-orange); }
 
 /* Pixel button base styles */
 .pixel-btn {
@@ -266,6 +270,22 @@ body {
       0 0 5px var(--neon-yellow),
       0 0 10px var(--neon-yellow),
       0 0 20px var(--neon-yellow);
+  }
+}
+
+@keyframes victoryGlowOrange {
+  0%, 100% {
+    text-shadow:
+      0 0 10px var(--neon-orange),
+      0 0 20px var(--neon-orange),
+      0 0 40px var(--neon-orange),
+      0 0 80px var(--neon-orange);
+  }
+  50% {
+    text-shadow:
+      0 0 5px var(--neon-orange),
+      0 0 10px var(--neon-orange),
+      0 0 20px var(--neon-orange);
   }
 }
 

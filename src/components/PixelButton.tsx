@@ -2,7 +2,7 @@
 
 import React from "react";
 
-type ButtonColor = "green" | "pink" | "yellow" | "blue";
+type ButtonColor = "green" | "pink" | "yellow" | "blue" | "orange";
 
 interface PixelButtonProps {
   onClick?: () => void;
@@ -17,6 +17,7 @@ const colorClasses: Record<ButtonColor, string> = {
   pink: "text-neon-pink border-neon-pink neon-border-pink",
   yellow: "text-neon-yellow border-neon-yellow neon-border-yellow",
   blue: "text-neon-blue border-neon-blue neon-border-blue",
+  orange: "text-neon-orange border-neon-orange neon-border-orange",
 };
 
 export default function PixelButton({

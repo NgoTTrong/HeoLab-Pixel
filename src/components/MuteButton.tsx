@@ -3,7 +3,7 @@
 interface Props {
   muted: boolean;
   onToggle: () => void;
-  color?: "green" | "pink" | "blue" | "yellow";
+  color?: "green" | "pink" | "blue" | "yellow" | "orange";
 }
 
 const colorMap: Record<string, string> = {
@@ -11,6 +11,7 @@ const colorMap: Record<string, string> = {
   pink:   "hover:border-neon-pink   hover:text-neon-pink",
   blue:   "hover:border-neon-blue   hover:text-neon-blue",
   yellow: "hover:border-neon-yellow hover:text-neon-yellow",
+  orange: "hover:border-neon-orange hover:text-neon-orange",
 };
 
 export default function MuteButton({ muted, onToggle, color = "blue" }: Props) {

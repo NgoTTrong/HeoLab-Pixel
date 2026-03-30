@@ -12,7 +12,11 @@ import {
   GHOST_COLORS,
   CELL_SIZE,
   TICK_MS,
+  PROXIMITY_FAR,
+  PROXIMITY_MID,
+  PROXIMITY_NEAR,
 } from "@/games/pacman/config";
+import { getCellOpacity, getClosestGhostDistance } from "@/games/pacman/fog";
 import type {
   Direction,
   GameModifiers,
@@ -340,6 +344,9 @@ function PacManSprite({
             } Z`}
             fill="#ffe600"
           />
+          {/* Eye - positioned in the upper-right area, looking in movement direction */}
+          <circle cx={25} cy={11} r={3.2} fill="#0a0a0a" />
+          <circle cx={25.8} cy={10.2} r={1.2} fill="#ffffff" />
         </g>
       </svg>
     </div>
@@ -527,6 +534,7 @@ function FruitSprite({
 // ---------------------------------------------------------------------------
 
 export default function PacmanPage() {
+  const [gameMode, setGameMode] = useState<"classic" | "survival">("classic");
   const [modifiers, setModifiers] = useState<GameModifiers>(DEFAULT_MODIFIERS);
   const [state, dispatch] = useReducer(pacmanReducer, undefined, () =>
     createInitialState(DEFAULT_MODIFIERS),
@@ -546,6 +554,7 @@ export default function PacmanPage() {
   const prevStatusRef = useRef<string>("idle");
   const prevFrightenedRef = useRef(0);
   const prevGhostCountRef = useRef(0);
+  const lastProximityRef = useRef(0);
 
   // Load high score on mount
   useEffect(() => {
@@ -640,6 +649,25 @@ export default function PacmanPage() {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [state.status]);
+
+  // Proximity audio for survival mode
+  useEffect(() => {
+    if (state.modifiers.gameMode !== "survival" || state.status !== "playing") return;
+    const now = Date.now();
+    if (now - lastProximityRef.current > 500) {
+      const dist = getClosestGhostDistance(state.pacman, state.ghosts);
+      if (dist <= PROXIMITY_NEAR) {
+        audioRef.current?.playHeartbeat("near");
+        audioRef.current?.playFootstep(0.8);
+      } else if (dist <= PROXIMITY_MID) {
+        audioRef.current?.playHeartbeat("mid");
+        audioRef.current?.playFootstep(0.4);
+      } else if (dist <= PROXIMITY_FAR) {
+        audioRef.current?.playHeartbeat("far");
+      }
+      lastProximityRef.current = now;
+    }
+  }, [state.tick, state.modifiers.gameMode, state.status, state.pacman, state.ghosts]);
 
   // Update high score on death
   useEffect(() => {
@@ -779,9 +807,16 @@ export default function PacmanPage() {
           }}
         >
           {state.maze.flatMap((row, ry) =>
-            row.map((cell, cx) => (
-              <MazeCell key={`${cx},${ry}`} cell={cell} cellSize={cellSize} />
-            )),
+            row.map((cell, cx) => {
+              const opacity = state.modifiers.gameMode === "survival"
+                ? getCellOpacity(cx, ry, state.pacman, state.visRadius, state.visited, 0.2)
+                : 1;
+              return (
+                <div key={`${cx},${ry}`} style={{ opacity }}>
+                  <MazeCell cell={cell} cellSize={cellSize} />
+                </div>
+              );
+            }),
           )}
         </div>
 
@@ -798,14 +833,21 @@ export default function PacmanPage() {
 
         {/* Ghost sprites */}
         {state.status !== "idle" &&
-          state.ghosts.map((ghost) => (
-            <GhostSprite
-              key={ghost.name}
-              ghost={ghost}
-              tick={state.tick}
-              cellSize={cellSize}
-            />
-          ))}
+          state.ghosts.map((ghost) => {
+            const ghostOpacity = state.modifiers.gameMode === "survival"
+              ? getCellOpacity(ghost.pos.x, ghost.pos.y, state.pacman, state.visRadius, state.visited, 0)
+              : 1;
+            if (ghostOpacity === 0) return null;
+            return (
+              <div key={ghost.name} style={{ opacity: ghostOpacity }}>
+                <GhostSprite
+                  ghost={ghost}
+                  tick={state.tick}
+                  cellSize={cellSize}
+                />
+              </div>
+            );
+          })}
 
         {/* Fruit */}
         {state.fruitActive && (
@@ -830,6 +872,29 @@ export default function PacmanPage() {
             >
               {isTouchDevice() ? "SWIPE TO START" : "PRESS SPACE OR ARROW TO START"}
             </p>
+            {/* Mode selector */}
+            <div className="flex gap-2 mb-2">
+              <button
+                onClick={() => { setGameMode("classic"); setModifiers(m => ({...m, gameMode: "classic"})); }}
+                className={`text-[0.5rem] px-3 py-1 border ${
+                  gameMode === "classic"
+                    ? "border-neon-orange text-neon-orange neon-text-orange"
+                    : "border-gray-600 text-gray-500"
+                } transition-colors`}
+              >
+                CLASSIC
+              </button>
+              <button
+                onClick={() => { setGameMode("survival"); setModifiers(m => ({...m, gameMode: "survival"})); }}
+                className={`text-[0.5rem] px-3 py-1 border ${
+                  gameMode === "survival"
+                    ? "border-neon-orange text-neon-orange neon-text-orange"
+                    : "border-gray-600 text-gray-500"
+                } transition-colors`}
+              >
+                SURVIVAL
+              </button>
+            </div>
             <PixelButton color="orange" onClick={() => dispatch({ type: "START", modifiers })}>
               PLAY
             </PixelButton>

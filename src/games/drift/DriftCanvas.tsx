@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useCallback } from "react";
+import { useRef, useEffect, useCallback, useState } from "react";
 import type { GameState, GameAction, Segment } from "./types";
 import type { DriftAudio } from "./audio";
 import {
@@ -62,6 +62,7 @@ export default function DriftCanvas({ state, dispatch, audio }: DriftCanvasProps
   const containerRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(0);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
 
   // Previous-value refs for audio change detection
   const prevDriftActiveRef = useRef(false);
@@ -72,6 +73,79 @@ export default function DriftCanvas({ state, dispatch, audio }: DriftCanvasProps
   const prevStatusRef = useRef(state.status);
   const prevCountdownRef = useRef(state.countdown);
   const prevPowerUpRef = useRef(state.player.powerUp);
+
+  // -----------------------------------------------------------------------
+  // Touch device detection & auto-accelerate
+  // -----------------------------------------------------------------------
+
+  useEffect(() => {
+    const touch = navigator.maxTouchPoints > 0;
+    setIsTouchDevice(touch);
+    if (touch) {
+      dispatch({ type: "ACCELERATE", pressed: true });
+    }
+  }, [dispatch]);
+
+  // -----------------------------------------------------------------------
+  // Touch event handlers
+  // -----------------------------------------------------------------------
+
+  const onSteerLeft = useCallback(
+    (e: React.TouchEvent) => {
+      e.preventDefault();
+      dispatch({ type: "STEER", direction: -1 });
+    },
+    [dispatch],
+  );
+
+  const onSteerLeftEnd = useCallback(
+    (e: React.TouchEvent) => {
+      e.preventDefault();
+      dispatch({ type: "STEER", direction: 0 });
+    },
+    [dispatch],
+  );
+
+  const onSteerRight = useCallback(
+    (e: React.TouchEvent) => {
+      e.preventDefault();
+      dispatch({ type: "STEER", direction: 1 });
+    },
+    [dispatch],
+  );
+
+  const onSteerRightEnd = useCallback(
+    (e: React.TouchEvent) => {
+      e.preventDefault();
+      dispatch({ type: "STEER", direction: 0 });
+    },
+    [dispatch],
+  );
+
+  const onDriftStart = useCallback(
+    (e: React.TouchEvent) => {
+      e.preventDefault();
+      dispatch({ type: "DRIFT_START" });
+      dispatch({ type: "ACCELERATE", pressed: true });
+    },
+    [dispatch],
+  );
+
+  const onDriftEnd = useCallback(
+    (e: React.TouchEvent) => {
+      e.preventDefault();
+      dispatch({ type: "DRIFT_END" });
+    },
+    [dispatch],
+  );
+
+  const onUsePowerUp = useCallback(
+    (e: React.TouchEvent) => {
+      e.preventDefault();
+      dispatch({ type: "USE_POWERUP" });
+    },
+    [dispatch],
+  );
 
   // -----------------------------------------------------------------------
   // Canvas sizing
@@ -527,7 +601,7 @@ export default function DriftCanvas({ state, dispatch, audio }: DriftCanvasProps
   return (
     <div
       ref={containerRef}
-      className="w-full flex justify-center"
+      className="relative w-full flex flex-col items-center"
       style={{ maxWidth: 800 }}
     >
       <canvas
@@ -535,6 +609,62 @@ export default function DriftCanvas({ state, dispatch, audio }: DriftCanvasProps
         className="block border-2 border-[#2a2a4a] rounded bg-black"
         tabIndex={0}
       />
+
+      {/* Touch controls overlay – only rendered on touch devices */}
+      {isTouchDevice && (
+        <div
+          className="pointer-events-none w-full flex"
+          style={{ height: 72 }}
+        >
+          {/* Left steer zone */}
+          <button
+            type="button"
+            className="pointer-events-auto flex-1 flex items-center justify-center select-none
+                       bg-black/50 border-2 border-[#f97316]/60 rounded-bl active:bg-[#f97316]/30"
+            style={{ fontFamily: '"Press Start 2P", monospace', fontSize: 11, color: "#f97316", minHeight: 60 }}
+            onTouchStart={onSteerLeft}
+            onTouchEnd={onSteerLeftEnd}
+          >
+            ◀ LEFT
+          </button>
+
+          {/* Center zone: Drift + Power-up */}
+          <div className="pointer-events-auto flex flex-1 gap-0">
+            <button
+              type="button"
+              className="flex-1 flex items-center justify-center select-none
+                         bg-black/50 border-2 border-[#f97316]/60 border-l-0 active:bg-[#f97316]/30"
+              style={{ fontFamily: '"Press Start 2P", monospace', fontSize: 10, color: "#ffe600", minHeight: 60 }}
+              onTouchStart={onDriftStart}
+              onTouchEnd={onDriftEnd}
+            >
+              DRIFT
+            </button>
+            <button
+              type="button"
+              className="flex-1 flex items-center justify-center select-none
+                         bg-black/50 border-2 border-[#f97316]/60 border-l-0 active:bg-[#f97316]/30"
+              style={{ fontFamily: '"Press Start 2P", monospace', fontSize: 14, minHeight: 60 }}
+              onTouchStart={onUsePowerUp}
+              onTouchEnd={(e) => e.preventDefault()}
+            >
+              🎁
+            </button>
+          </div>
+
+          {/* Right steer zone */}
+          <button
+            type="button"
+            className="pointer-events-auto flex-1 flex items-center justify-center select-none
+                       bg-black/50 border-2 border-[#f97316]/60 border-l-0 rounded-br active:bg-[#f97316]/30"
+            style={{ fontFamily: '"Press Start 2P", monospace', fontSize: 11, color: "#f97316", minHeight: 60 }}
+            onTouchStart={onSteerRight}
+            onTouchEnd={onSteerRightEnd}
+          >
+            RIGHT ▶
+          </button>
+        </div>
+      )}
     </div>
   );
 }

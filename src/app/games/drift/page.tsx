@@ -14,6 +14,7 @@ import { POSITION_SCORES, TRACKS } from "@/games/drift/config";
 
 const GAME_KEY = "drift";
 const MUTE_KEY = "gamestation-drift-muted";
+const GHOST_KEY_PREFIX = "gamestation-drift-ghost-";
 
 /** Format milliseconds as M:SS.mmm */
 function fmtTime(ms: number): string {
@@ -83,25 +84,41 @@ export default function DriftPage() {
     }
   }, [state.countdown, state.status]);
 
+  // Load ghost replay data from localStorage for Time Attack mode
+  const loadGhostZ = useCallback((trackSlug: string): number[] => {
+    try {
+      const raw = localStorage.getItem(`${GHOST_KEY_PREFIX}${trackSlug}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed as number[];
+      }
+    } catch {
+      // ignore malformed data
+    }
+    return [];
+  }, []);
+
   // Start game from menu
   const handleStart = useCallback(
     (mode: GameMode, trackIndex: number, carIndex: number) => {
       const trackSlug = TRACKS[trackIndex].slug;
       const bt = mode === "timeAttack" ? getBestTime(`${GAME_KEY}-${trackSlug}`) : null;
+      const ghostZ = mode === "timeAttack" ? loadGhostZ(trackSlug) : [];
       bestTimeAtStart.current = bt;
-      dispatch({ type: "INIT", mode, trackIndex, carIndex, bestTime: bt });
+      dispatch({ type: "INIT", mode, trackIndex, carIndex, bestTime: bt, ghostZ });
       setPhase("playing");
     },
-    [],
+    [loadGhostZ],
   );
 
   // Retry with same config
   const handleRetry = useCallback(() => {
     const trackSlug = TRACKS[state.trackIndex].slug;
     const bt = state.mode === "timeAttack" ? getBestTime(`${GAME_KEY}-${trackSlug}`) : null;
+    const ghostZ = state.mode === "timeAttack" ? loadGhostZ(trackSlug) : [];
     bestTimeAtStart.current = bt;
-    dispatch({ type: "INIT", mode: state.mode, trackIndex: state.trackIndex, carIndex: state.carIndex, bestTime: bt });
-  }, [state.mode, state.trackIndex, state.carIndex]);
+    dispatch({ type: "INIT", mode: state.mode, trackIndex: state.trackIndex, carIndex: state.carIndex, bestTime: bt, ghostZ });
+  }, [state.mode, state.trackIndex, state.carIndex, loadGhostZ]);
 
   // Save scores when race finishes
   useEffect(() => {
@@ -118,9 +135,22 @@ export default function DriftPage() {
     if (state.mode === "timeAttack") {
       const trackSlug = TRACKS[state.trackIndex].slug;
       const totalTime = state.lapTimes.reduce((a, b) => a + b, 0);
+      const isNewBest = bestTimeAtStart.current === null || totalTime < bestTimeAtStart.current;
       setBestTime(`${GAME_KEY}-${trackSlug}`, totalTime);
+
+      // Save ghost recording only on new best time
+      if (isNewBest && state.ghostRecording.length > 0) {
+        try {
+          localStorage.setItem(
+            `${GHOST_KEY_PREFIX}${trackSlug}`,
+            JSON.stringify(state.ghostRecording),
+          );
+        } catch {
+          // localStorage full or unavailable - silently ignore
+        }
+      }
     }
-  }, [state.status, state.mode, state.score, state.trackIndex, state.lapTimes, highScore]);
+  }, [state.status, state.mode, state.score, state.trackIndex, state.lapTimes, state.ghostRecording, highScore]);
 
   // Return to menu
   const handleBackToMenu = useCallback(() => {

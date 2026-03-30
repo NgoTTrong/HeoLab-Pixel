@@ -64,6 +64,10 @@ export default function DriftCanvas({ state, dispatch, audio }: DriftCanvasProps
   const lastTimeRef = useRef<number>(0);
   const [isTouchDevice, setIsTouchDevice] = useState(false);
 
+  // Ghost replay frame index (increments each tick in Time Attack)
+  const ghostFrameRef = useRef(0);
+  const prevRacingRef = useRef(false);
+
   // Previous-value refs for audio change detection
   const prevDriftActiveRef = useRef(false);
   const prevDriftLevelRef = useRef(0);
@@ -466,7 +470,17 @@ export default function DriftCanvas({ state, dispatch, audio }: DriftCanvasProps
       // Dispatch TICK only when racing
       if (st.status === "racing") {
         dispatch({ type: "TICK", dt });
+        // Advance ghost frame counter
+        if (st.mode === "timeAttack" && st.ghostZ.length > 0) {
+          ghostFrameRef.current = Math.min(ghostFrameRef.current + 1, st.ghostZ.length - 1);
+        }
       }
+
+      // Reset ghost frame when transitioning to racing (new race)
+      if (st.status === "racing" && !prevRacingRef.current) {
+        ghostFrameRef.current = 0;
+      }
+      prevRacingRef.current = st.status === "racing";
 
       // Audio change detection
       handleAudio(st, aud);
@@ -544,6 +558,26 @@ export default function DriftCanvas({ state, dispatch, audio }: DriftCanvasProps
         const sx = seg.screen.x + ai.x * seg.screen.w;
         const aiCar = CARS[ai.carIndex];
         drawCar(c, sx, seg.screen.y, seg.screen.scale, 0, aiCar, false);
+      }
+
+      // Ghost car (Time Attack mode only)
+      if (st.mode === "timeAttack" && st.ghostZ.length > 0) {
+        const gFrame = Math.min(ghostFrameRef.current, st.ghostZ.length - 1);
+        const ghostZPos = st.ghostZ[gFrame];
+        const ghostSegIdx = Math.floor(ghostZPos) % segCount;
+        const relIdx = ((ghostSegIdx - cameraSegIdx) % segCount + segCount) % segCount;
+        if (relIdx > 0 && relIdx < VISIBLE_SEGMENTS) {
+          const seg = st.segments[ghostSegIdx >= 0 ? ghostSegIdx : ghostSegIdx + segCount];
+          if (seg.screen && seg.screen.scale > 0) {
+            // Ghost drives at road center (x=0)
+            const ghostScreenX = seg.screen.x;
+            const ghostCar = CARS[st.carIndex];
+            c.save();
+            c.globalAlpha = 0.3;
+            drawCar(c, ghostScreenX, seg.screen.y, seg.screen.scale, 0, ghostCar, false);
+            c.restore();
+          }
+        }
       }
 
       // Player car (fixed position at ~80% down)

@@ -125,6 +125,7 @@ export function initialState(
   trackIndex: number,
   carIndex: number,
   bestTime: number | null,
+  ghostZ: number[] = [],
 ): GameState {
   const segments = buildSegments(trackIndex);
   const player = createPlayer();
@@ -145,7 +146,7 @@ export function initialState(
     elapsedMs: 0,
     lapTimes: [],
     bestTime,
-    ghostZ: [],
+    ghostZ,
     powerUps,
     oilSlicks: [],
     countdown: 3,
@@ -460,6 +461,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         action.trackIndex,
         action.carIndex,
         action.bestTime,
+        action.ghostZ ?? [],
       );
 
     case "COUNTDOWN_TICK": {

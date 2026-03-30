@@ -169,7 +169,7 @@ export interface GameState {
 
 // -- Actions --------------------------------------------------------
 export type GameAction =
-  | { type: "INIT"; mode: GameMode; trackIndex: number; carIndex: number; bestTime: number | null }
+  | { type: "INIT"; mode: GameMode; trackIndex: number; carIndex: number; bestTime: number | null; ghostZ?: number[] }
   | { type: "COUNTDOWN_TICK" }
   | { type: "TICK"; dt: number }
   | { type: "STEER"; direction: number }       // -1 left, 0 center, +1 right

@@ -23,6 +23,12 @@ export interface Ghost {
   released: boolean;
 }
 
+export interface ComboEffects {
+  speedBoost: number;    // ticks remaining
+  visionBoost: number;   // ticks remaining
+  miniPower: number;     // ticks remaining
+}
+
 export interface PacmanState {
   maze: CellType[][];
   pacman: Position;
@@ -42,9 +48,23 @@ export interface PacmanState {
   fruitTimer: number;
   tick: number;
   modifiers: GameModifiers;
+
+  // Survival mode state
+  visited: boolean[][];
+  visRadius: number;
+  combo: number;
+  comboTimer: number;
+  comboEffects: ComboEffects;
+  turnHistory: Record<string, Direction[]>;
+  evolutionTier: "basic" | "aware" | "evolved";
+  lastMilestone: number;
+  milestonePopup: string | null;
+  milestonePopupTimer: number;
+  pacMoved: boolean;
 }
 
 export interface GameModifiers {
+  gameMode: "classic" | "survival";
   ghostSpeed: "slow" | "normal" | "fast" | "insane";
   powerDuration: 3 | 5 | 8 | 12;
   mazeStyle: "classic" | "open" | "tight";

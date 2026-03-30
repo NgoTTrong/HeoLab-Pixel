@@ -23,6 +23,7 @@ import {
   DEFAULT_MODIFIERS,
   GHOST_SPEED_MULT,
   TICK_MS,
+  FOG_RADIUS,
 } from "./config";
 
 // ---------------------------------------------------------------------------
@@ -145,6 +146,19 @@ export function createInitialState(
     fruitTimer: 0,
     tick: 0,
     modifiers,
+
+    // Survival mode state
+    visited: Array.from({ length: 31 }, () => Array(28).fill(false)),
+    visRadius: FOG_RADIUS,
+    combo: 0,
+    comboTimer: 0,
+    comboEffects: { speedBoost: 0, visionBoost: 0, miniPower: 0 },
+    turnHistory: {},
+    evolutionTier: "basic" as const,
+    lastMilestone: 0,
+    milestonePopup: null,
+    milestonePopupTimer: 0,
+    pacMoved: false,
   };
 }
 

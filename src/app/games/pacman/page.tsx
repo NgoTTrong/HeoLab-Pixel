@@ -7,7 +7,9 @@ import MuteButton from "@/components/MuteButton";
 import { pacmanReducer, createInitialState } from "@/games/pacman/logic";
 import { createPacmanAudio, type PacmanAudio } from "@/games/pacman/audio";
 import { getHighScore, setHighScore } from "@/lib/scores";
+import { getComboColor } from "@/games/pacman/combo";
 import {
+  COMBO_MILESTONES,
   DEFAULT_MODIFIERS,
   GHOST_COLORS,
   CELL_SIZE,
@@ -533,6 +535,17 @@ function FruitSprite({
 // Main page
 // ---------------------------------------------------------------------------
 
+function getComboProgress(combo: number): number {
+  let prev = 0;
+  for (const m of COMBO_MILESTONES) {
+    if (combo < m.combo) {
+      return ((combo - prev) / (m.combo - prev)) * 100;
+    }
+    prev = m.combo;
+  }
+  return 100;
+}
+
 export default function PacmanPage() {
   const [gameMode, setGameMode] = useState<"classic" | "survival">("classic");
   const [modifiers, setModifiers] = useState<GameModifiers>(DEFAULT_MODIFIERS);
@@ -555,6 +568,7 @@ export default function PacmanPage() {
   const prevFrightenedRef = useRef(0);
   const prevGhostCountRef = useRef(0);
   const lastProximityRef = useRef(0);
+  const prevComboRef = useRef(0);
 
   // Load high score on mount
   useEffect(() => {
@@ -669,6 +683,27 @@ export default function PacmanPage() {
     }
   }, [state.tick, state.modifiers.gameMode, state.status, state.pacman, state.ghosts]);
 
+  // Track combo changes for audio
+  useEffect(() => {
+    if (state.modifiers.gameMode !== "survival") return;
+
+    if (state.combo > prevComboRef.current && state.combo > 0) {
+      audioRef.current?.playComboTick(state.combo);
+    }
+
+    // Check if milestone was just reached
+    if (state.milestonePopup && state.milestonePopupTimer > 0) {
+      audioRef.current?.playMilestone();
+    }
+
+    // Combo break
+    if (state.combo === 0 && prevComboRef.current > 5) {
+      audioRef.current?.playComboBreak();
+    }
+
+    prevComboRef.current = state.combo;
+  }, [state.combo, state.milestonePopup, state.milestonePopupTimer, state.modifiers.gameMode]);
+
   // Update high score on death
   useEffect(() => {
     if (state.status === "dead" && state.score > highScore) {
@@ -761,6 +796,11 @@ export default function PacmanPage() {
           >
             ⚙️
           </button>
+          {state.modifiers.gameMode === "survival" && state.combo > 0 && (
+            <span style={{ color: getComboColor(state.combo) }} className="text-[0.55rem] font-bold">
+              x{state.combo}
+            </span>
+          )}
           <span className="text-[0.5rem] text-gray-400">
             LVL {state.level}
           </span>
@@ -781,6 +821,21 @@ export default function PacmanPage() {
           onChange={setModifiers}
           onClose={() => setShowSettings(false)}
         />
+      )}
+
+      {/* Combo progress bar */}
+      {state.modifiers.gameMode === "survival" && state.combo > 0 && (
+        <div className="flex justify-center">
+          <div className="w-40 h-1 bg-gray-800 overflow-hidden">
+            <div
+              className="h-full transition-all duration-100"
+              style={{
+                width: `${getComboProgress(state.combo)}%`,
+                backgroundColor: getComboColor(state.combo),
+              }}
+            />
+          </div>
+        </div>
       )}
 
       {/* Maze board */}
@@ -852,6 +907,18 @@ export default function PacmanPage() {
         {/* Fruit */}
         {state.fruitActive && (
           <FruitSprite cellSize={cellSize} level={state.level} />
+        )}
+
+        {/* Milestone popup */}
+        {state.modifiers.gameMode === "survival" && state.milestonePopup && (
+          <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
+            <span
+              className="text-sm sm:text-base font-bold animate-[floatUp_1.5s_ease-out_forwards]"
+              style={{ color: getComboColor(state.combo), textShadow: `0 0 10px ${getComboColor(state.combo)}` }}
+            >
+              {state.milestonePopup}
+            </span>
+          </div>
         )}
       </div>
 

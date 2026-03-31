@@ -11,7 +11,9 @@ export function updateVisited(
   visited: boolean[][],
   pacman: Position,
 ): boolean[][] {
-  const newVisited = visited.map(row => [...row]);
+  if (visited[pacman.y]?.[pacman.x]) return visited; // already visited, no change
+  const newVisited = [...visited];
+  newVisited[pacman.y] = [...visited[pacman.y]];
   newVisited[pacman.y][pacman.x] = true;
   return newVisited;
 }

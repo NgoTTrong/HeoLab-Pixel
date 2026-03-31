@@ -130,6 +130,7 @@ export function createInitialState(
   modifiers: GameModifiers = DEFAULT_MODIFIERS,
 ): PacmanState {
   const maze = getMaze(modifiers.mazeStyle);
+  const total = countDots(maze);
   return {
     maze,
     pacman: { ...PACMAN_START },
@@ -140,7 +141,8 @@ export function createInitialState(
     level: 1,
     lives: modifiers.lives,
     status: "idle",
-    dotsLeft: countDots(maze),
+    dotsLeft: total,
+    totalDots: total,
     ghostCombo: 0,
     frightenedTimeLeft: 0,
     modeTimer: 0,
@@ -270,8 +272,7 @@ function movePacman(state: PacmanState): PacmanState {
   }
 
   // 5. Handle fruit spawning
-  const totalDots = countDots(getMaze(modifiers.mazeStyle));
-  const dotsEaten = totalDots - dotsLeft;
+  const dotsEaten = state.totalDots - dotsLeft;
 
   if (
     !fruitActive &&
@@ -395,8 +396,7 @@ function updateGhosts(state: PacmanState): PacmanState {
   const blinky = state.ghosts.find((g) => g.name === "blinky") ?? state.ghosts[0];
 
   // Count dots eaten for release thresholds
-  const totalDots = countDots(getMaze(modifiers.mazeStyle));
-  const dotsEaten = totalDots - state.dotsLeft;
+  const dotsEaten = state.totalDots - state.dotsLeft;
 
   const updatedGhosts = state.ghosts.map((ghost, idx) => {
     let g = { ...ghost };
@@ -635,6 +635,7 @@ export function pacmanReducer(
     case "NEXT_LEVEL": {
       const nextLevel = state.level + 1;
       const maze = getMaze(state.modifiers.mazeStyle);
+      const total = countDots(maze);
       const ghosts = createGhosts(state.modifiers.ghostCount, maze);
       const isSurvival = state.modifiers.gameMode === "survival";
 
@@ -646,7 +647,8 @@ export function pacmanReducer(
         pendingDir: "LEFT",
         ghosts,
         level: nextLevel,
-        dotsLeft: countDots(maze),
+        dotsLeft: total,
+        totalDots: total,
         ghostCombo: 0,
         frightenedTimeLeft: 0,
         modeTimer: 0,

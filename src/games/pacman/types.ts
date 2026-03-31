@@ -40,6 +40,7 @@ export interface PacmanState {
   lives: number;
   status: GameStatus;
   dotsLeft: number;
+  totalDots: number;
   ghostCombo: number;
   frightenedTimeLeft: number;
   modeTimer: number;

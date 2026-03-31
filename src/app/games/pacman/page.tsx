@@ -610,14 +610,16 @@ const StaticMazeGrid = memo(function StaticMazeGrid({
 // ---------------------------------------------------------------------------
 
 const FogCanvas = memo(function FogCanvas({
-  pacman,
+  pacmanX,
+  pacmanY,
   visRadius,
   visited,
   cellSize,
   width,
   height,
 }: {
-  pacman: { x: number; y: number };
+  pacmanX: number;
+  pacmanY: number;
   visRadius: number;
   visited: boolean[][];
   cellSize: number;
@@ -641,8 +643,8 @@ const FogCanvas = memo(function FogCanvas({
       const row = visited[ry];
       if (!row) continue;
       for (let cx = 0; cx < row.length; cx++) {
-        const dx = cx - pacman.x;
-        const dy = ry - pacman.y;
+        const dx = cx - pacmanX;
+        const dy = ry - pacmanY;
         const d = Math.sqrt(dx * dx + dy * dy);
 
         let fogAlpha: number;
@@ -663,7 +665,7 @@ const FogCanvas = memo(function FogCanvas({
         }
       }
     }
-  }, [pacman, visRadius, visited, cellSize, width, height]);
+  }, [pacmanX, pacmanY, visRadius, visited, cellSize, width, height]);
 
   return (
     <canvas
@@ -1137,7 +1139,8 @@ export default function PacmanPage() {
         {/* Fog of war overlay (canvas, survival mode only) */}
         {state.modifiers.gameMode === "survival" && (
           <FogCanvas
-            pacman={state.pacman}
+            pacmanX={state.pacman.x}
+            pacmanY={state.pacman.y}
             visRadius={state.visRadius}
             visited={state.visited}
             cellSize={cellSize}

@@ -55,6 +55,17 @@ function formatTime(ms: number): string {
 }
 
 // ---------------------------------------------------------------------------
+// Particle type aliases (module scope — used by visual effect refs)
+// ---------------------------------------------------------------------------
+
+type SkidMark   = { x: number; y: number; w: number; alpha: number };
+type SmokePart  = { x: number; y: number; vx: number; vy: number; size: number; maxSize: number; alpha: number; color: string };
+type SpeedLine  = { x1: number; y1: number; x2: number; y2: number };
+type BoostFlash = { alpha: number; color: string; text: string };
+type Notif      = { text: string; subText: string; subColor: string; slideY: number; alpha: number };
+type LvlNotif   = { text: string; alpha: number; color: string };
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -80,12 +91,6 @@ export default function DriftCanvas({ state, dispatch, audio }: DriftCanvasProps
   const prevPowerUpRef = useRef(state.player.powerUp);
 
   // ---- Visual effect refs (never enter game state) ----
-  type SkidMark   = { x: number; y: number; w: number; alpha: number };
-  type SmokePart  = { x: number; y: number; vx: number; vy: number; size: number; maxSize: number; alpha: number; color: string };
-  type SpeedLine  = { x1: number; y1: number; x2: number; y2: number };
-  type BoostFlash = { alpha: number; color: string; text: string };
-  type Notif      = { text: string; subText: string; subColor: string; slideY: number; alpha: number };
-  type LvlNotif   = { text: string; alpha: number; color: string };
 
   const skidMarksRef    = useRef<SkidMark[]>([]);
   const smokePartsRef   = useRef<SmokePart[]>([]);
@@ -567,6 +572,7 @@ export default function DriftCanvas({ state, dispatch, audio }: DriftCanvasProps
       if (st.status === "racing" && !prevRacingRef.current) ghostFrameRef.current = 0;
       prevRacingRef.current = st.status === "racing";
 
+      const wasBoostActive = prevBoostActiveRef.current;
       handleAudio(st, aud);
 
       const cvs = canvasRef.current!;
@@ -748,7 +754,7 @@ export default function DriftCanvas({ state, dispatch, audio }: DriftCanvasProps
       }
 
       // 10. Speed lines on boost
-      if (st.player.boost.active && !prevBoostActiveRef.current) {
+      if (st.player.boost.active && !wasBoostActive) {
         const hx = w / 2, hy = h * 0.4;
         speedLinesRef.current = Array.from({ length: 22 }, (_, i) => {
           const angle = (i / 22) * Math.PI * 2;

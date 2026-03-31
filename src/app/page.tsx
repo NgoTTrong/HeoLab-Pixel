@@ -114,7 +114,7 @@ const allGames = [
     subtitle: "Navigate pixel mazes, gobble rune stones, and outwit ghost AI.",
     href: "/games/pacman",
     borderColor: "#f97316",
-    emoji: "👾",
+    emoji: "👻",
     tag: "ARCADE",
     category: "ARCADE" as Category,
   },

@@ -176,6 +176,22 @@ export default function DriftCanvas({ state, dispatch, audio }: DriftCanvasProps
     [dispatch],
   );
 
+  const onBrakeStart = useCallback(
+    (e: React.TouchEvent) => {
+      e.preventDefault();
+      dispatch({ type: "BRAKE", pressed: true });
+    },
+    [dispatch],
+  );
+
+  const onBrakeEnd = useCallback(
+    (e: React.TouchEvent) => {
+      e.preventDefault();
+      dispatch({ type: "BRAKE", pressed: false });
+    },
+    [dispatch],
+  );
+
   const onUsePowerUp = useCallback(
     (e: React.TouchEvent) => {
       e.preventDefault();
@@ -249,6 +265,15 @@ export default function DriftCanvas({ state, dispatch, audio }: DriftCanvasProps
         case " ":
         case "Shift":
           dispatch({ type: "DRIFT_START" });
+          break;
+        case "p":
+        case "P":
+        case "Escape":
+          if (stateRef.current.status === "racing") {
+            dispatch({ type: "PAUSE" });
+          } else if (stateRef.current.status === "paused") {
+            dispatch({ type: "RESUME" });
+          }
           break;
         case "e":
         case "E":
@@ -910,6 +935,30 @@ export default function DriftCanvas({ state, dispatch, audio }: DriftCanvasProps
         tabIndex={0}
       />
 
+      {/* Pause overlay */}
+      {state.status === "paused" && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center"
+          style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}>
+          <div className="flex flex-col items-center gap-5">
+            <p style={{ fontFamily: '"Press Start 2P", monospace', fontSize: 22, color: "#ffe600",
+              textShadow: "0 0 12px #ffe600, 0 0 24px #ffe600" }}>
+              PAUSED
+            </p>
+            <button
+              onClick={() => dispatch({ type: "RESUME" })}
+              style={{ fontFamily: '"Press Start 2P", monospace', fontSize: 11, color: "#f97316",
+                border: "2px solid #f97316", background: "rgba(249,115,22,0.1)",
+                padding: "10px 28px", cursor: "pointer" }}
+            >
+              RESUME
+            </button>
+            <p style={{ fontFamily: '"Press Start 2P", monospace', fontSize: 8, color: "rgba(255,255,255,0.4)" }}>
+              ESC / P
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Touch controls overlay – only rendered on touch devices */}
       {isTouchDevice && (
         <div
@@ -928,7 +977,7 @@ export default function DriftCanvas({ state, dispatch, audio }: DriftCanvasProps
             ◀ LEFT
           </button>
 
-          {/* Center zone: Drift + Power-up */}
+          {/* Center zone: Drift + Brake + Power-up */}
           <div className="pointer-events-auto flex flex-1 gap-0">
             <button
               type="button"
@@ -939,6 +988,16 @@ export default function DriftCanvas({ state, dispatch, audio }: DriftCanvasProps
               onTouchEnd={onDriftEnd}
             >
               DRIFT
+            </button>
+            <button
+              type="button"
+              className="flex-1 flex items-center justify-center select-none
+                         bg-black/50 border-2 border-[#f97316]/60 border-l-0 active:bg-[#ff2d95]/30"
+              style={{ fontFamily: '"Press Start 2P", monospace', fontSize: 10, color: "#ff2d95", minHeight: 60 }}
+              onTouchStart={onBrakeStart}
+              onTouchEnd={onBrakeEnd}
+            >
+              BRAKE
             </button>
             <button
               type="button"

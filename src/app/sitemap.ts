@@ -15,5 +15,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${base}/games/flappy`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: `${base}/games/runner`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: `${base}/games/space`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
+    { url: `${base}/games/pacman`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
+    { url: `${base}/games/drift`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
   ];
 }

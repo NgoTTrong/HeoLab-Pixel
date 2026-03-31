@@ -110,7 +110,7 @@ const games = [
     subtitle: "Navigate pixel mazes and outwit ghost AI.",
     href: "/games/pacman",
     color: "orange",
-    emoji: "👾",
+    emoji: "👻",
     tag: "ARCADE",
     category: "ARCADE" as Category,
     available: true,

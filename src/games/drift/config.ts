@@ -19,7 +19,7 @@ export const CURVE_SPEED_LOSS = 0.3;  // speed loss multiplier in curves (no dri
 
 // Drift
 export const DRIFT_CHARGE_RATE = 1;         // ms of charge per ms of drifting
-export const DRIFT_LEVEL_THRESHOLDS = [0, 2000, 4000]; // ms thresholds for levels 1,2,3
+export const DRIFT_LEVEL_THRESHOLDS = [500, 2000, 4000]; // ms thresholds for levels 1,2,3
 export const DRIFT_BOOST_MULTIPLIERS = [1.4, 1.7, 2.2];  // was [1.3, 1.6, 2.0]
 export const DRIFT_BOOST_DURATIONS   = [1000, 1800, 2800]; // was [500, 1000, 1500]
 export const DRIFT_STEER_FACTOR = 0.6;      // steering responsiveness while drifting
@@ -126,7 +126,7 @@ export const TRACKS: TrackDef[] = [
     ]),
   },
   {
-    name: "Cyber Highway", slug: "cyber-highway", difficulty: "hard", length: 400,
+    name: "Cyber Highway", slug: "cyber-highway", difficulty: "hard", length: 380,
     scenery: "cyber", palette: CYBER_PALETTE,
     build: () => buildTrack([
       { len: 15, curve: 0, hill: 0 },

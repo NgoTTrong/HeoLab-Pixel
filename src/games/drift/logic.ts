@@ -205,12 +205,10 @@ function tickPlayer(state: GameState, dt: number): GameState {
   player.speed *=
     1 - curveFactor * (player.drift.active ? 0.2 : 1) * (dt / 1000);
 
-  // Boost multiplier
+  // Boost: ramp toward boosted cap at 3x normal accel (smooth, not instant)
   if (player.boost.active) {
-    player.speed = Math.min(
-      maxSpeed * player.boost.multiplier,
-      player.speed * player.boost.multiplier,
-    );
+    const boostedCap = maxSpeed * player.boost.multiplier;
+    player.speed = Math.min(boostedCap, player.speed + boostedCap * ACCEL_RATE * 3 * (dt / 1000));
   }
 
   // Move forward

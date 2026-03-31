@@ -21,6 +21,16 @@ export const metadata: Metadata = {
   title: "HeoLab — Play Free Browser Games",
   description:
     "HeoLab is an indie game lab with free browser games. Play Minesweeper, 2048, Sudoku and more — no download needed.",
+  keywords: [
+    "free browser games",
+    "free online games",
+    "play games online",
+    "browser games no download",
+    "HeoLab",
+    "indie games",
+    "pixel games",
+    "arcade games online",
+  ],
   openGraph: {
     type: "website",
     url: "https://heolab.dev",

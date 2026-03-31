@@ -4,6 +4,16 @@ export const metadata: Metadata = {
   title: "Dungeon Sweep — Free Minesweeper Game | HeoLab",
   description:
     "Play Dungeon Sweep, a pixel RPG minesweeper. Clear the dungeon without waking the monsters. Free, no download needed.",
+  keywords: [
+    "free minesweeper",
+    "minesweeper online",
+    "browser minesweeper",
+    "pixel minesweeper",
+    "dungeon minesweeper",
+    "free puzzle game",
+    "HeoLab",
+  ],
+  alternates: { canonical: "https://heolab.dev/games/minesweeper" },
   openGraph: {
     title: "Dungeon Sweep — Free Minesweeper Game | HeoLab",
     description: "Clear the dungeon without waking the monsters.",

@@ -10,6 +10,23 @@ import { getBestTime, setBestTime } from "@/lib/scores";
 import { createMinesweeperAudio } from "@/games/minesweeper/audio";
 import MuteButton from "@/components/MuteButton";
 import type { MinesweeperAudio } from "@/games/minesweeper/audio";
+import type { GameHelp } from "@/lib/gameHelp";
+
+const HELP: GameHelp = {
+  objective: "Reveal all safe cells without triggering a mine. Numbers show how many mines are in adjacent cells — use them to deduce where mines are hiding.",
+  controls: [
+    { key: "Click", action: "Reveal cell" },
+    { key: "Right Click", action: "Place / remove flag" },
+    { key: "Middle Click", action: "Chord — auto-reveal neighbors" },
+    { key: "Long Press", action: "Flag on mobile" },
+    { key: "Double Tap", action: "Chord on mobile" },
+  ],
+  specials: [
+    { icon: "🔢", name: "CHORD CLICK", desc: "Click a revealed number when you have placed exactly that many flags around it to instantly reveal all remaining neighbors." },
+    { icon: "🚩", name: "FLAG MODE", desc: "Toggle flag mode on mobile to switch tap behavior between revealing and flagging." },
+    { icon: "⚡", name: "DIFFICULTY", desc: "Easy (9x9), Medium (16x16), Hard (30x16) — grid size and mine count increase with difficulty." },
+  ],
+};
 
 export default function MinesweeperPage() {
   const [difficulty, setDifficulty] = useState<Difficulty>("easy");
@@ -207,6 +224,8 @@ export default function MinesweeperPage() {
       timer={timer}
       onNewGame={() => handleNewGame()}
       controls={difficultyButtons}
+      helpContent={HELP}
+      gameKey="minesweeper"
     >
       <div className="flex flex-col items-center gap-3">
         {/* Status bar */}
@@ -236,7 +255,7 @@ export default function MinesweeperPage() {
         </div>
 
         {/* Board — hard mode rotates to portrait on mobile */}
-        <div className="w-full overflow-x-auto flex justify-center">
+        <div className="w-full overflow-x-auto flex justify-center" onContextMenu={(e) => e.preventDefault()}>
           <div className={`relative transition-all duration-500
             ${state.gameState === "lost" ? "animate-[screenShake_0.5s_ease-in-out]" : ""}`}>
             <Board

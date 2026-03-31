@@ -10,6 +10,21 @@ import { getBestTime, setBestTime } from "@/lib/scores";
 import { createSudokuAudio } from "@/games/sudoku/audio";
 import type { SudokuAudio } from "@/games/sudoku/audio";
 import MuteButton from "@/components/MuteButton";
+import type { GameHelp } from "@/lib/gameHelp";
+
+const HELP: GameHelp = {
+  objective: "Fill every row, column, and 3x3 box with each rune (1-9) exactly once. No rune may repeat in the same row, column, or box.",
+  controls: [
+    { key: "Click cell", action: "Select a cell" },
+    { key: "1 - 9", action: "Place rune in selected cell" },
+    { key: "Click rune", action: "Place rune on touch" },
+    { key: "Backspace / Del", action: "Clear selected cell" },
+  ],
+  specials: [
+    { icon: "💡", name: "HINTS", desc: "Use limited hints to reveal the correct rune for a cell. Spend wisely!" },
+    { icon: "✅", name: "AUTO-CHECK", desc: "Wrong placements are highlighted in red in real time so you can correct them immediately." },
+  ],
+};
 
 export default function SudokuPage() {
   const [difficulty, setDifficulty] = useState<Difficulty>("easy");
@@ -194,6 +209,8 @@ export default function SudokuPage() {
       onNewGame={() => handleNewGame()}
       actions={<MuteButton muted={muted} onToggle={() => setMuted(m => !m)} color="blue" />}
       controls={difficultyButtons}
+      helpContent={HELP}
+      gameKey="sudoku"
     >
       <div className="flex flex-col items-center gap-3">
         {/* Status bar */}

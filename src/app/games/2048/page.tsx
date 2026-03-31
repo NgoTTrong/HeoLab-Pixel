@@ -11,8 +11,23 @@ import { getMilestone } from "@/games/2048/constants";
 import { create2048Audio } from "@/games/2048/audio";
 import type { Audio2048 } from "@/games/2048/audio";
 import MuteButton from "@/components/MuteButton";
+import type { GameHelp } from "@/lib/gameHelp";
 
 const GAME_KEY = "2048";
+
+const HELP: GameHelp = {
+  objective: "Slide tiles to merge matching numbers and reach 2048. The board fills up as you merge — plan your moves carefully or you will run out of space!",
+  controls: [
+    { key: "Arrow Keys", action: "Slide all tiles in that direction" },
+    { key: "Swipe", action: "Slide on mobile" },
+  ],
+  scoring: [
+    { icon: "🔢", name: "MERGE SCORE", desc: "Each merge adds the resulting tile value to your score. Merging two 512 tiles scores 1024." },
+  ],
+  specials: [
+    { icon: "🧬", name: "EVOLUTION", desc: "Tiles transform into pixel monsters at milestone values: 128, 256, 512, 1024, 2048, and beyond." },
+  ],
+};
 
 export default function Game2048Page() {
   const [state, setState] = useState<GameState2048 | null>(null);
@@ -198,6 +213,8 @@ export default function Game2048Page() {
           ARROW KEYS / WASD / SWIPE
         </span>
       }
+      helpContent={HELP}
+      gameKey="2048"
     >
       <div className="flex flex-col items-center gap-4">
         {state && <Grid ref={gridRef} grid={state.grid} />}

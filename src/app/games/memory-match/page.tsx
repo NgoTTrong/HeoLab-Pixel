@@ -10,8 +10,20 @@ import PixelButton from "@/components/PixelButton";
 import { createMemoryAudio } from "@/games/memory-match/audio";
 import type { MemoryAudio } from "@/games/memory-match/audio";
 import MuteButton from "@/components/MuteButton";
+import type { GameHelp } from "@/lib/gameHelp";
 
 const GAME_KEY = "memory-match";
+
+const HELP: GameHelp = {
+  objective: "Flip cards to find matching pixel creature pairs. Match all pairs before the timer runs out. The faster you match, the higher your score!",
+  controls: [
+    { key: "Click / Tap", action: "Flip a card" },
+  ],
+  scoring: [
+    { icon: "🔥", name: "COMBO MULTIPLIER", desc: "Consecutive successful matches increase your score multiplier. Break the chain with a miss and it resets." },
+    { icon: "⏱", name: "TIME BONUS", desc: "Matching pairs quickly earns bonus points on top of the base pair score." },
+  ],
+};
 
 export default function MemoryMatchPage() {
   const [size, setSize] = useState<GridSize>("easy");
@@ -134,6 +146,8 @@ export default function MemoryMatchPage() {
       timer={timer}
       onNewGame={handleNewGame}
       actions={<MuteButton muted={muted} onToggle={() => setMuted(m => !m)} color="yellow" />}
+      helpContent={HELP}
+      gameKey="memory-match"
       controls={
         <div className="flex items-center gap-2">
           <PixelButton

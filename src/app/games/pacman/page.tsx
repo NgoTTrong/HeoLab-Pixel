@@ -615,6 +615,9 @@ export default function PacmanPage() {
   const [popups, setPopups] = useState<PopupEntry[]>([]);
   const popupIdRef = useRef(0);
   const prevFruitActiveRef = useRef(false);
+  const [evolutionAlert, setEvolutionAlert] = useState<"aware" | "evolved" | null>(null);
+  const prevEvolutionTierRef = useRef<"basic" | "aware" | "evolved">("basic");
+  const evolutionAlertTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
@@ -718,6 +721,21 @@ export default function PacmanPage() {
     }
     prevFruitActiveRef.current = state.fruitActive;
   }, [state.fruitActive, state.status, state.level, spawnPopup]);
+
+  // Ghost evolution announcement
+  useEffect(() => {
+    if (state.modifiers.gameMode !== "survival") return;
+    const prev = prevEvolutionTierRef.current;
+    const curr = state.evolutionTier;
+    if (prev !== curr && (curr === "aware" || curr === "evolved")) {
+      prevEvolutionTierRef.current = curr;
+      setEvolutionAlert(curr);
+      if (evolutionAlertTimerRef.current) clearTimeout(evolutionAlertTimerRef.current);
+      evolutionAlertTimerRef.current = setTimeout(() => setEvolutionAlert(null), 2500);
+    } else {
+      prevEvolutionTierRef.current = curr;
+    }
+  }, [state.evolutionTier, state.modifiers.gameMode]);
 
   // Audio: death or level complete
   useEffect(() => {
@@ -960,7 +978,9 @@ export default function PacmanPage() {
       {/* Maze board */}
       <div
         className={`relative select-none ${
-          state.status === "dead" ? "animate-[screenShake_0.5s_ease-in-out]" : ""
+          state.status === "dead" || evolutionAlert === "evolved"
+            ? "animate-[screenShake_0.5s_ease-in-out]"
+            : ""
         }`}
         style={{
           width: boardWidth,
@@ -1077,6 +1097,52 @@ export default function PacmanPage() {
             {popup.text}
           </div>
         ))}
+
+        {/* Ghost evolution announcement */}
+        {evolutionAlert && (
+          <div
+            className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none"
+            style={evolutionAlert === "evolved"
+              ? { animation: "evolvedFlicker 0.6s ease-out" }
+              : { animation: "overlayIn 0.3s ease-out" }
+            }
+          >
+            <div
+              className="flex flex-col items-center gap-1 px-4 py-3 border"
+              style={{
+                borderColor: evolutionAlert === "evolved" ? "#ff2d55" : "#ffe600",
+                backgroundColor: evolutionAlert === "evolved" ? "#1a000a" : "#1a1a00",
+              }}
+            >
+              <span style={{ fontSize: cellSize * 1.2 }}>
+                {evolutionAlert === "evolved" ? "☠️" : "🧠"}
+              </span>
+              <span
+                className="text-[0.55rem] font-bold tracking-wider"
+                style={{
+                  color: evolutionAlert === "evolved" ? "#ff2d55" : "#ffe600",
+                  textShadow: evolutionAlert === "evolved"
+                    ? "0 0 10px #ff2d55"
+                    : "0 0 10px #ffe600",
+                  fontFamily: "var(--font-pixel), monospace",
+                }}
+              >
+                {evolutionAlert === "evolved" ? "GHOSTS EVOLVED" : "GHOSTS ARE LEARNING"}
+              </span>
+              <span
+                className="text-[0.38rem]"
+                style={{
+                  color: evolutionAlert === "evolved" ? "#ff2d5580" : "#ffe60080",
+                  fontFamily: "var(--font-pixel), monospace",
+                }}
+              >
+                {evolutionAlert === "evolved"
+                  ? "They know exactly where you're going"
+                  : "They're starting to predict your moves"}
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Milestone popup */}
         {state.modifiers.gameMode === "survival" && state.milestonePopup && (

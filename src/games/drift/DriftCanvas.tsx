@@ -11,7 +11,9 @@ import {
   POWER_UPS,
   BASE_MAX_SPEED,
   SPEED_PER_RATING,
+  DRIFT_BOOST_MULTIPLIERS,
   DRIFT_BOOST_DURATIONS,
+  SPIN_OUT_DURATION,
 } from "./config";
 import { projectSegments, drawSky, drawRoad, drawParallax, drawScenery } from "./road";
 import { drawCar, drawPowerUpBox } from "./sprites";
@@ -368,7 +370,9 @@ export default function DriftCanvas({ state, dispatch, audio }: DriftCanvasProps
       let fill = 0;
       let barColor = "#f97316";
       if (st.player.boost.active) {
-        fill = st.player.boost.remainingMs / DRIFT_BOOST_DURATIONS[2];
+        const bIdx = DRIFT_BOOST_MULTIPLIERS.findIndex(m => Math.abs(m - st.player.boost.multiplier) < 0.01);
+        const boostDur = DRIFT_BOOST_DURATIONS[bIdx >= 0 ? bIdx : DRIFT_BOOST_DURATIONS.length - 1];
+        fill = st.player.boost.remainingMs / boostDur;
         barColor = "#ff2d95";
       } else if (st.player.drift.active) {
         fill = Math.min(1, st.player.drift.chargeMs / 4000);
@@ -733,7 +737,9 @@ export default function DriftCanvas({ state, dispatch, audio }: DriftCanvasProps
       if (st.player.spinOut) {
         c.save();
         c.translate(px, py);
-        c.rotate((st.player.spinOutMs / 100) * Math.PI * 0.3);
+        // spinOutMs counts down from SPIN_OUT_DURATION to 0; use elapsed ratio for forward spin
+        const spinProgress = (SPIN_OUT_DURATION - st.player.spinOutMs) / SPIN_OUT_DURATION;
+        c.rotate(spinProgress * Math.PI * 4);
         c.translate(-px, -py);
         drawCar(c, px, py, 1, st.player.spriteAngle, playerCar, false, 0);
         c.restore();
@@ -775,7 +781,9 @@ export default function DriftCanvas({ state, dispatch, audio }: DriftCanvasProps
       if (!st.player.boost.active) speedLinesRef.current = [];
 
       if (speedLinesRef.current.length > 0 && st.player.boost.remainingMs > 0) {
-        const alpha = Math.min(0.45, (st.player.boost.remainingMs / DRIFT_BOOST_DURATIONS[2]) * 0.5);
+        const slIdx = DRIFT_BOOST_MULTIPLIERS.findIndex(m => Math.abs(m - st.player.boost.multiplier) < 0.01);
+        const slDur = DRIFT_BOOST_DURATIONS[slIdx >= 0 ? slIdx : DRIFT_BOOST_DURATIONS.length - 1];
+        const alpha = Math.min(0.45, (st.player.boost.remainingMs / slDur) * 0.5);
         c.save();
         c.strokeStyle = `rgba(255,200,80,${alpha})`;
         c.lineWidth = 1.5;

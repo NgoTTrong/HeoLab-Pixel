@@ -187,8 +187,6 @@ export const AI_COUNT = 3;
 // Tiered AI: index 0 = weak, 1 = medium, 2 = strong
 export const AI_BASE_SPEED_RATIOS   = [0.72, 0.85, 0.95]; // fraction of BASE_MAX_SPEED
 export const AI_RUBBER_BAND_CAPS    = [0.82, 0.95, 1.08]; // max speed via rubber band
-export const AI_DRIFT_CURVE_THRESH  = [999,  0.5,  0.3];  // curve value that triggers drift
-export const AI_DRIFT_CHANCES       = [0,    0.30, 0.70]; // probability per eligible frame
 export const AI_START_Z_OFFSETS     = [-8,   -5,   -3];   // starting z behind player
 export const AI_STEER_SMOOTHNESS    = 0.05;
 export const AI_COLLISION_RADIUS    = 0.15;

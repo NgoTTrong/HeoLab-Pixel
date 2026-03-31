@@ -11,8 +11,9 @@ import {
   POWER_UPS,
   BASE_MAX_SPEED,
   SPEED_PER_RATING,
+  DRIFT_BOOST_DURATIONS,
 } from "./config";
-import { projectSegments, drawSky, drawRoad, drawParallax } from "./road";
+import { projectSegments, drawSky, drawRoad, drawParallax, drawScenery } from "./road";
 import { drawCar, drawPowerUpBox } from "./sprites";
 
 // ---------------------------------------------------------------------------
@@ -77,6 +78,30 @@ export default function DriftCanvas({ state, dispatch, audio }: DriftCanvasProps
   const prevStatusRef = useRef(state.status);
   const prevCountdownRef = useRef(state.countdown);
   const prevPowerUpRef = useRef(state.player.powerUp);
+
+  // ---- Visual effect refs (never enter game state) ----
+  type SkidMark   = { x: number; y: number; w: number; alpha: number };
+  type SmokePart  = { x: number; y: number; vx: number; vy: number; size: number; maxSize: number; alpha: number; color: string };
+  type SpeedLine  = { x1: number; y1: number; x2: number; y2: number };
+  type BoostFlash = { alpha: number; color: string; text: string };
+  type Notif      = { text: string; subText: string; subColor: string; slideY: number; alpha: number };
+  type LvlNotif   = { text: string; alpha: number; color: string };
+
+  const skidMarksRef    = useRef<SkidMark[]>([]);
+  const smokePartsRef   = useRef<SmokePart[]>([]);
+  const speedLinesRef   = useRef<SpeedLine[]>([]);
+  const boostFlashRef   = useRef<BoostFlash | null>(null);
+  const shakeRef        = useRef<{ mag: number; remaining: number } | null>(null);
+  const lapNotifRef     = useRef<Notif | null>(null);
+  const lvlNotifRef     = useRef<LvlNotif | null>(null);
+  const puFlashRef      = useRef<{ alpha: number; color: string } | null>(null);
+  const prevLapNotifRef = useRef(0);
+
+  // State/audio refs — declared here so keyboard/touch handlers can access them
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const audioRef = useRef(audio);
+  audioRef.current = audio;
 
   // -----------------------------------------------------------------------
   // Touch device detection & auto-accelerate
@@ -146,6 +171,10 @@ export default function DriftCanvas({ state, dispatch, audio }: DriftCanvasProps
   const onUsePowerUp = useCallback(
     (e: React.TouchEvent) => {
       e.preventDefault();
+      if (stateRef.current.player.powerUp) {
+        const puDef = POWER_UPS.find(p => p.type === stateRef.current.player.powerUp);
+        if (puDef) puFlashRef.current = { alpha: 0.22, color: puDef.color };
+      }
       dispatch({ type: "USE_POWERUP" });
     },
     [dispatch],
@@ -215,6 +244,10 @@ export default function DriftCanvas({ state, dispatch, audio }: DriftCanvasProps
           break;
         case "e":
         case "E":
+          if (stateRef.current.player.powerUp) {
+            const puDef = POWER_UPS.find(p => p.type === stateRef.current.player.powerUp);
+            if (puDef) puFlashRef.current = { alpha: 0.22, color: puDef.color };
+          }
           dispatch({ type: "USE_POWERUP" });
           break;
       }
@@ -261,115 +294,172 @@ export default function DriftCanvas({ state, dispatch, audio }: DriftCanvasProps
 
   const drawHUD = useCallback(
     (ctx: CanvasRenderingContext2D, w: number, h: number, st: GameState) => {
-      const fontSize = Math.max(10, Math.round(w * 0.018));
-      ctx.font = `${fontSize}px "Press Start 2P", monospace`;
+      const car       = CARS[st.carIndex];
+      const maxSpeed  = BASE_MAX_SPEED + (car.speed - 3) * SPEED_PER_RATING;
+      const speedFrac = Math.max(0, Math.min(1, st.player.speed / maxSpeed));
+      const fs        = Math.max(9, Math.round(w * 0.017));
+
+      ctx.font = `${fs}px "Press Start 2P", monospace`;
       ctx.textBaseline = "top";
 
-      // ---- Top bar ----
+      // Top bar
       ctx.textAlign = "left";
       ctx.fillStyle = "#f97316";
-      ctx.fillText(`LAP ${st.lap > st.totalLaps ? st.totalLaps : st.lap}/${st.totalLaps}`, w * 0.03, h * 0.04);
+      ctx.fillText(`LAP ${Math.min(st.lap, st.totalLaps)}/${st.totalLaps}`, w * 0.03, h * 0.04);
 
       ctx.textAlign = "center";
-      ctx.fillStyle = "#ffe600";
+      const posColors = ["#ffe600", "#cccccc", "#ff6666", "#ff6666"];
+      ctx.fillStyle = posColors[Math.min(st.position - 1, 3)];
+      ctx.shadowColor = ctx.fillStyle;
+      ctx.shadowBlur = 8;
       ctx.fillText(positionLabel(st.position), w * 0.5, h * 0.04);
+      ctx.shadowBlur = 0;
 
       ctx.textAlign = "right";
       ctx.fillStyle = "#ffffff";
       ctx.fillText(formatTime(st.elapsedMs), w * 0.97, h * 0.04);
 
-      // ---- Bottom left: Speed ----
-      const car = CARS[st.carIndex];
-      const maxSpeed = BASE_MAX_SPEED + (car.speed - 3) * SPEED_PER_RATING;
-      const kmh = Math.round((st.player.speed / maxSpeed) * 300);
-      ctx.textAlign = "left";
-      ctx.fillStyle = "#39ff14";
-      ctx.fillText(`${kmh} km/h`, w * 0.03, h * 0.9);
+      // Speedometer arc (bottom-left)
+      const arcX = w * 0.10;
+      const arcY = h * 0.91;
+      const arcR = Math.min(w * 0.065, h * 0.085);
+      const startA = Math.PI * 0.80;
+      const sweepA = Math.PI * 1.40;
+      const currA  = startA + sweepA * speedFrac;
 
-      // ---- Bottom center: Boost meter ----
-      const meterW = w * 0.25;
-      const meterH = h * 0.025;
-      const meterX = w * 0.5 - meterW / 2;
-      const meterY = h * 0.92;
+      ctx.lineCap = "round";
+      ctx.strokeStyle = "rgba(255,255,255,0.12)";
+      ctx.lineWidth = arcR * 0.22;
+      ctx.beginPath();
+      ctx.arc(arcX, arcY, arcR, startA, startA + sweepA);
+      ctx.stroke();
 
-      ctx.fillStyle = "#ffffff22";
-      ctx.fillRect(meterX, meterY, meterW, meterH);
+      const arcColor = speedFrac < 0.5 ? "#39ff14" : speedFrac < 0.8 ? "#ffe600" : "#f97316";
+      ctx.strokeStyle = arcColor;
+      ctx.shadowColor = arcColor;
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc(arcX, arcY, arcR, startA, currA);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      const kmh = Math.round(speedFrac * 300);
+      ctx.font = `${Math.max(7, Math.round(arcR * 0.44))}px "Press Start 2P", monospace`;
+      ctx.fillStyle = "#ffffff";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(`${kmh}`, arcX, arcY);
+
+      // Drift charge bar (bottom-center)
+      const barW = w * 0.28;
+      const barH = Math.max(h * 0.022, 6);
+      const barX = w / 2 - barW / 2;
+      const barY = h * 0.935;
+
+      ctx.fillStyle = "rgba(255,255,255,0.10)";
+      ctx.fillRect(barX, barY, barW, barH);
 
       let fill = 0;
-      let meterColor = "#f97316";
+      let barColor = "#f97316";
       if (st.player.boost.active) {
-        const maxBoost = 1500; // approximate max duration
-        fill = st.player.boost.remainingMs / maxBoost;
-        meterColor = "#ff2d95";
+        fill = st.player.boost.remainingMs / DRIFT_BOOST_DURATIONS[2];
+        barColor = "#ff2d95";
       } else if (st.player.drift.active) {
         fill = Math.min(1, st.player.drift.chargeMs / 4000);
-        const colors = ["#f97316", "#ffe600", "#39ff14"];
-        meterColor = colors[Math.min(st.player.drift.level, 2)];
+        barColor = st.player.drift.level >= 3 ? "#ff6600" : st.player.drift.level >= 2 ? "#ffe600" : "#ffffff";
       }
       fill = Math.max(0, Math.min(1, fill));
-      ctx.fillStyle = meterColor;
-      ctx.fillRect(meterX, meterY, meterW * fill, meterH);
-
-      ctx.strokeStyle = "#ffffff44";
+      if (fill > 0) {
+        ctx.shadowColor = barColor;
+        ctx.shadowBlur = 6;
+        ctx.fillStyle = barColor;
+        ctx.fillRect(barX, barY, barW * fill, barH);
+        ctx.shadowBlur = 0;
+      }
+      ctx.strokeStyle = "rgba(0,0,0,0.6)";
+      ctx.lineWidth = 1.5;
+      for (const frac of [0.5, 0.75]) {
+        ctx.beginPath();
+        ctx.moveTo(barX + barW * frac, barY - 1);
+        ctx.lineTo(barX + barW * frac, barY + barH + 1);
+        ctx.stroke();
+      }
+      ctx.strokeStyle = "rgba(255,255,255,0.3)";
       ctx.lineWidth = 1;
-      ctx.strokeRect(meterX, meterY, meterW, meterH);
+      ctx.strokeRect(barX, barY, barW, barH);
 
-      // ---- Bottom right: Power-up slot ----
-      ctx.textAlign = "right";
+      ctx.font = `${Math.max(6, Math.round(w * 0.013))}px "Press Start 2P", monospace`;
+      ctx.fillStyle = "rgba(255,255,255,0.5)";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "bottom";
+      ctx.fillText("DRIFT", w / 2, barY - 2);
+
+      // Power-up slot (bottom-right)
       if (st.player.powerUp) {
-        const puDef = POWER_UPS.find((p) => p.type === st.player.powerUp);
+        const puDef = POWER_UPS.find(p => p.type === st.player.powerUp);
         if (puDef) {
-          const emojiSize = Math.max(14, Math.round(w * 0.03));
-          ctx.font = `${emojiSize}px serif`;
-          ctx.fillText(puDef.emoji, w * 0.97, h * 0.88);
+          const pulse  = 0.5 + 0.5 * Math.sin(Date.now() * 0.006);
+          const slotX  = w * 0.90;
+          const slotY  = h * 0.91;
+          const slotR  = Math.min(w * 0.04, h * 0.055);
+          ctx.strokeStyle = puDef.color;
+          ctx.lineWidth   = 2 + pulse * 2;
+          ctx.shadowColor = puDef.color;
+          ctx.shadowBlur  = 8 + pulse * 6;
+          ctx.beginPath();
+          ctx.arc(slotX, slotY, slotR, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+          ctx.font = `${Math.max(14, Math.round(slotR * 1.2))}px serif`;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(puDef.emoji, slotX, slotY);
+          ctx.font = `${Math.max(6, Math.round(w * 0.012))}px "Press Start 2P", monospace`;
+          ctx.fillStyle = "rgba(255,255,255,0.6)";
+          ctx.textBaseline = "top";
+          ctx.fillText("[E]", slotX, slotY + slotR + 2);
         }
       } else {
-        ctx.font = `${fontSize}px "Press Start 2P", monospace`;
-        ctx.fillStyle = "#ffffff33";
-        ctx.fillText("[E]", w * 0.97, h * 0.9);
+        ctx.font = `${Math.max(6, Math.round(w * 0.013))}px "Press Start 2P", monospace`;
+        ctx.fillStyle = "rgba(255,255,255,0.2)";
+        ctx.textAlign = "right";
+        ctx.textBaseline = "bottom";
+        ctx.fillText("[E]", w * 0.97, h * 0.97);
       }
 
-      // ---- Countdown overlay ----
+      // Countdown
       if (st.status === "countdown") {
         const cdText = st.countdown > 0 ? `${st.countdown}` : "GO!";
-        const cdSize = Math.round(w * 0.12);
-        ctx.font = `${cdSize}px "Press Start 2P", monospace`;
+        ctx.font = `${Math.round(w * 0.11)}px "Press Start 2P", monospace`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillStyle = st.countdown > 0 ? "#ffe600" : "#39ff14";
+        ctx.fillStyle   = st.countdown > 0 ? "#ffe600" : "#39ff14";
         ctx.shadowColor = ctx.fillStyle;
-        ctx.shadowBlur = 20;
-        ctx.fillText(cdText, w * 0.5, h * 0.4);
+        ctx.shadowBlur  = 25;
+        ctx.fillText(cdText, w / 2, h * 0.38);
         ctx.shadowBlur = 0;
       }
 
-      // ---- Finished overlay ----
+      // Finished
       if (st.status === "finished") {
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-
-        // Semi-transparent backdrop
         ctx.fillStyle = "rgba(0,0,0,0.5)";
         ctx.fillRect(0, h * 0.25, w, h * 0.5);
-
-        const titleSize = Math.round(w * 0.05);
-        ctx.font = `${titleSize}px "Press Start 2P", monospace`;
-        ctx.fillStyle = st.position === 1 ? "#ffe600" : "#ff2d95";
+        ctx.font = `${Math.round(w * 0.048)}px "Press Start 2P", monospace`;
+        ctx.fillStyle   = st.position === 1 ? "#ffe600" : "#ff2d95";
         ctx.shadowColor = ctx.fillStyle;
-        ctx.shadowBlur = 15;
+        ctx.shadowBlur  = 15;
         ctx.fillText(
           st.position === 1 ? "YOU WIN!" : `${positionLabel(st.position)} PLACE`,
-          w * 0.5,
-          h * 0.38,
+          w / 2, h * 0.38,
         );
         ctx.shadowBlur = 0;
-
-        const infoSize = Math.round(w * 0.02);
-        ctx.font = `${infoSize}px "Press Start 2P", monospace`;
+        ctx.font = `${Math.round(w * 0.02)}px "Press Start 2P", monospace`;
         ctx.fillStyle = "#ffffff";
-        ctx.fillText(`TIME: ${formatTime(st.elapsedMs)}`, w * 0.5, h * 0.5);
-        ctx.fillText(`SCORE: ${Math.round(st.score)}`, w * 0.5, h * 0.58);
-        ctx.fillText(`DRIFT BONUS: ${Math.round(st.driftScore)}`, w * 0.5, h * 0.64);
+        ctx.fillText(`TIME: ${formatTime(st.elapsedMs)}`, w / 2, h * 0.50);
+        ctx.fillText(`SCORE: ${Math.round(st.score)}`, w / 2, h * 0.58);
+        ctx.fillText(`DRIFT BONUS: ${Math.round(st.driftScore)}`, w / 2, h * 0.64);
       }
     },
     [],
@@ -450,13 +540,6 @@ export default function DriftCanvas({ state, dispatch, audio }: DriftCanvasProps
   // Main render loop
   // -----------------------------------------------------------------------
 
-  // Use a ref for state so the RAF callback always sees latest
-  const stateRef = useRef(state);
-  stateRef.current = state;
-
-  const audioRef = useRef(audio);
-  audioRef.current = audio;
-
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -466,160 +549,324 @@ export default function DriftCanvas({ state, dispatch, audio }: DriftCanvasProps
     lastTimeRef.current = 0;
 
     function loop(timestamp: number) {
-      const st = stateRef.current;
+      const st  = stateRef.current;
       const aud = audioRef.current;
 
-      // Delta time
       if (lastTimeRef.current === 0) lastTimeRef.current = timestamp;
       const rawDt = timestamp - lastTimeRef.current;
       lastTimeRef.current = timestamp;
-      const dt = Math.min(rawDt, 50); // cap at 50ms
+      const dt = Math.min(rawDt, 50);
 
-      // Dispatch TICK only when racing
       if (st.status === "racing") {
         dispatch({ type: "TICK", dt });
-        // Advance ghost frame counter
         if (st.mode === "timeAttack" && st.ghostZ.length > 0) {
           ghostFrameRef.current = Math.min(ghostFrameRef.current + 1, st.ghostZ.length - 1);
         }
       }
-
-      // Reset ghost frame when transitioning to racing (new race)
-      if (st.status === "racing" && !prevRacingRef.current) {
-        ghostFrameRef.current = 0;
-      }
+      if (st.status === "racing" && !prevRacingRef.current) ghostFrameRef.current = 0;
       prevRacingRef.current = st.status === "racing";
 
-      // Audio change detection
       handleAudio(st, aud);
 
-      // ---- Drawing ----
       const cvs = canvasRef.current!;
-      const c = cvs.getContext("2d")!;
-      const w = cvs.width;
-      const h = cvs.height;
+      const c   = cvs.getContext("2d")!;
+      const w   = cvs.width;
+      const h   = cvs.height;
+
+      // Screen shake
+      let shakeX = 0, shakeY = 0;
+      if (shakeRef.current) {
+        shakeRef.current.remaining -= dt;
+        if (shakeRef.current.remaining <= 0) {
+          shakeRef.current = null;
+        } else {
+          const mag = shakeRef.current.mag * (shakeRef.current.remaining / 300);
+          shakeX = (Math.random() - 0.5) * mag;
+          shakeY = (Math.random() - 0.5) * mag;
+        }
+      }
 
       c.clearRect(0, 0, w, h);
+      if (shakeX !== 0 || shakeY !== 0) { c.save(); c.translate(shakeX, shakeY); }
 
-      const track = TRACKS[st.trackIndex];
+      const track   = TRACKS[st.trackIndex];
       const palette = track.palette;
 
       // 1. Sky
-      drawSky(c, w, h, palette);
+      drawSky(c, w, h, palette, track.scenery);
 
-      // 2. Parallax background
+      // 2. Parallax
       const parallaxOffset = st.player.z * 0.001;
       const sceneryPattern = SCENERY_PATTERN[track.scenery] ?? "buildings";
       drawParallax(c, w, h * 0.5, h * 0.2, parallaxOffset, palette.sky2 + "88", sceneryPattern);
 
-      // 3. Project segments
+      // 3. Road
       const playerZWorld = st.player.z * SEGMENT_LENGTH;
       projectSegments(st.segments, playerZWorld, st.player.x, w, h);
-
-      // 4. Draw road
       drawRoad(c, st.segments, playerZWorld, w, h, palette);
 
-      // 5. Collect objects to draw sorted by distance (farthest first)
-      const cameraSegIdx = Math.floor(playerZWorld / SEGMENT_LENGTH);
-      const segCount = st.segments.length;
+      // 4. Roadside scenery
+      drawScenery(c, st.segments, playerZWorld, w, h, track.scenery as "city"|"mountain"|"desert"|"cyber");
 
-      // Power-up boxes
+      // 5. Skid marks (update + draw)
+      skidMarksRef.current = skidMarksRef.current
+        .map(m => ({ ...m, alpha: m.alpha - 0.0025 }))
+        .filter(m => m.alpha > 0);
+      for (const m of skidMarksRef.current) {
+        c.fillStyle = `rgba(30,20,10,${m.alpha})`;
+        c.fillRect(m.x - m.w / 2, m.y - 1.5, m.w, 3);
+      }
+
+      // 6. Power-ups + oil slicks
+      const cameraSegIdx = Math.floor(playerZWorld / SEGMENT_LENGTH);
+      const segCount     = st.segments.length;
+
       for (const pu of st.powerUps) {
         if (pu.collected) continue;
         const relIdx = ((pu.segmentIndex - cameraSegIdx) % segCount + segCount) % segCount;
         if (relIdx <= 0 || relIdx >= VISIBLE_SEGMENTS) continue;
         const seg = st.segments[pu.segmentIndex % segCount];
         if (!seg.screen || seg.screen.scale <= 0) continue;
-        const puDef = POWER_UPS.find((p) => p.type === pu.type);
+        const puDef = POWER_UPS.find(p => p.type === pu.type);
         if (!puDef) continue;
-        const sx = seg.screen.x + pu.lane * seg.screen.w;
-        drawPowerUpBox(c, sx, seg.screen.y, seg.screen.scale, puDef.color, puDef.emoji);
+        drawPowerUpBox(c, seg.screen.x + pu.lane * seg.screen.w, seg.screen.y, seg.screen.scale, puDef.color, puDef.emoji);
       }
 
-      // Oil slicks
       for (const oil of st.oilSlicks) {
         const relIdx = ((oil.segmentIndex - cameraSegIdx) % segCount + segCount) % segCount;
         if (relIdx <= 0 || relIdx >= VISIBLE_SEGMENTS) continue;
         const seg = st.segments[oil.segmentIndex % segCount];
         if (!seg.screen || seg.screen.scale <= 0) continue;
-        const sx = seg.screen.x + oil.lane * seg.screen.w;
         const oilSize = Math.max(8 * seg.screen.scale, 2);
         c.fillStyle = "#1a1a2ecc";
         c.beginPath();
-        c.ellipse(sx, seg.screen.y, oilSize * 1.5, oilSize * 0.5, 0, 0, Math.PI * 2);
+        c.ellipse(seg.screen.x + oil.lane * seg.screen.w, seg.screen.y, oilSize * 1.5, oilSize * 0.5, 0, 0, Math.PI * 2);
         c.fill();
       }
 
-      // AI cars (sort farthest first)
+      // 7. AI cars (farthest first)
       const sortedAI = [...st.ai].sort((a, b) => {
         const aDist = ((a.z - st.player.z) % segCount + segCount) % segCount;
         const bDist = ((b.z - st.player.z) % segCount + segCount) % segCount;
-        return bDist - aDist; // farthest first
+        return bDist - aDist;
       });
-
       for (const ai of sortedAI) {
         const aiSegIdx = Math.floor(ai.z) % segCount;
-        const relIdx = ((aiSegIdx - cameraSegIdx) % segCount + segCount) % segCount;
+        const relIdx   = ((aiSegIdx - cameraSegIdx) % segCount + segCount) % segCount;
         if (relIdx <= 0 || relIdx >= VISIBLE_SEGMENTS) continue;
         const seg = st.segments[aiSegIdx >= 0 ? aiSegIdx : aiSegIdx + segCount];
         if (!seg.screen || seg.screen.scale <= 0) continue;
-        const sx = seg.screen.x + ai.x * seg.screen.w;
-        const aiCar = CARS[ai.carIndex];
-        drawCar(c, sx, seg.screen.y, seg.screen.scale, 0, aiCar, false);
+        drawCar(c, seg.screen.x + ai.x * seg.screen.w, seg.screen.y, seg.screen.scale, 0, CARS[ai.carIndex], false);
       }
 
-      // Ghost car (Time Attack mode only)
+      // 8. Ghost car
       if (st.mode === "timeAttack" && st.ghostZ.length > 0) {
-        const gFrame = Math.min(ghostFrameRef.current, st.ghostZ.length - 1);
+        const gFrame    = Math.min(ghostFrameRef.current, st.ghostZ.length - 1);
         const ghostZPos = st.ghostZ[gFrame];
-        const ghostSegIdx = Math.floor(ghostZPos) % segCount;
-        const relIdx = ((ghostSegIdx - cameraSegIdx) % segCount + segCount) % segCount;
+        const ghostSeg  = ((Math.floor(ghostZPos) % segCount) + segCount) % segCount;
+        const relIdx    = ((ghostSeg - cameraSegIdx) % segCount + segCount) % segCount;
         if (relIdx > 0 && relIdx < VISIBLE_SEGMENTS) {
-          const seg = st.segments[ghostSegIdx >= 0 ? ghostSegIdx : ghostSegIdx + segCount];
+          const seg = st.segments[ghostSeg];
           if (seg.screen && seg.screen.scale > 0) {
-            // Ghost drives at road center (x=0)
-            const ghostScreenX = seg.screen.x;
-            const ghostCar = CARS[st.carIndex];
             c.save();
-            c.globalAlpha = 0.3;
-            drawCar(c, ghostScreenX, seg.screen.y, seg.screen.scale, 0, ghostCar, false);
+            c.globalAlpha = 0.28;
+            drawCar(c, seg.screen.x, seg.screen.y, seg.screen.scale, 0, CARS[st.carIndex], false);
             c.restore();
           }
         }
       }
 
-      // Player car (fixed position at ~80% down)
-      const playerScreenX = w / 2;
-      const playerScreenY = h * 0.8;
-      const playerCar = CARS[st.carIndex];
-      const playerScale = 1;
+      // 9. Player car
+      const px = w / 2;
+      const py = h * 0.80;
+      const playerCar  = CARS[st.carIndex];
       const isDrifting = st.player.drift.active;
 
-      drawCar(c, playerScreenX, playerScreenY, playerScale, st.player.spriteAngle, playerCar, isDrifting, st.player.drift.chargeMs);
+      // Spawn skid marks while drifting
+      if (isDrifting && st.status === "racing") {
+        const wOffset = 56 * 1.8 * 0.40;
+        skidMarksRef.current.push({ x: px - wOffset, y: py - 56 * 0.12, w: 5, alpha: 0.55 });
+        skidMarksRef.current.push({ x: px + wOffset, y: py - 56 * 0.12, w: 5, alpha: 0.55 });
+        if (skidMarksRef.current.length > 220) skidMarksRef.current.splice(0, 2);
+      }
 
-      // Shield visual indicator
+      // Spawn smoke particles while drifting
+      if (isDrifting && st.status === "racing") {
+        const charge = st.player.drift.chargeMs;
+        const color  = charge > 4000 ? "#ff5500" : charge > 2000 ? "#ffdd00" : "#cccccc";
+        const count  = charge > 4000 ? 5 : charge > 2000 ? 4 : 3;
+        for (let i = 0; i < count; i++) {
+          smokePartsRef.current.push({
+            x: px + (Math.random() - 0.5) * 30,
+            y: py + 5,
+            vx: (Math.random() - 0.5) * 1.2,
+            vy: -(0.4 + Math.random() * 0.8),
+            size: 4 + Math.random() * 4,
+            maxSize: 18 + Math.random() * 14,
+            alpha: 0.45 + Math.random() * 0.2,
+            color,
+          });
+        }
+        if (smokePartsRef.current.length > 160) smokePartsRef.current.splice(0, 4);
+      }
+
+      // Update + draw smoke
+      smokePartsRef.current = smokePartsRef.current
+        .map(p => ({ ...p, x: p.x + p.vx, y: p.y + p.vy, size: Math.min(p.size + 0.35, p.maxSize), alpha: p.alpha - 0.012 }))
+        .filter(p => p.alpha > 0);
+      for (const p of smokePartsRef.current) {
+        const rgb = p.color === "#cccccc" ? "200,200,200" : p.color === "#ffdd00" ? "255,221,0" : "255,85,0";
+        c.beginPath();
+        c.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        c.fillStyle = `rgba(${rgb},${p.alpha})`;
+        c.fill();
+      }
+
+      // Draw player car
+      if (st.player.spinOut) {
+        c.save();
+        c.translate(px, py);
+        c.rotate((st.player.spinOutMs / 100) * Math.PI * 0.3);
+        c.translate(-px, -py);
+        drawCar(c, px, py, 1, st.player.spriteAngle, playerCar, false, 0);
+        c.restore();
+      } else {
+        drawCar(c, px, py, 1, st.player.spriteAngle, playerCar, isDrifting, st.player.drift.chargeMs);
+      }
+
+      // Shield ring
       if (st.player.shieldMs > 0) {
         c.strokeStyle = "#3b82f6aa";
         c.lineWidth = 3;
+        c.shadowColor = "#3b82f6";
+        c.shadowBlur = 10;
         c.beginPath();
-        c.arc(playerScreenX, playerScreenY - 15, 30, 0, Math.PI * 2);
+        c.arc(px, py - 20, 36, 0, Math.PI * 2);
         c.stroke();
+        c.shadowBlur = 0;
       }
 
-      // Spin-out visual
-      if (st.player.spinOut) {
+      // 10. Speed lines on boost
+      if (st.player.boost.active && !prevBoostActiveRef.current) {
+        const hx = w / 2, hy = h * 0.4;
+        speedLinesRef.current = Array.from({ length: 22 }, (_, i) => {
+          const angle = (i / 22) * Math.PI * 2;
+          const dist  = Math.hypot(w, h);
+          return { x1: hx + Math.cos(angle) * dist, y1: hy + Math.sin(angle) * dist, x2: hx, y2: hy };
+        });
+        const mul = st.player.boost.multiplier;
+        if (mul >= 2.2) {
+          boostFlashRef.current = { alpha: 0.55, color: "#ff6600", text: "MAX BOOST!" };
+          shakeRef.current = { mag: 14, remaining: 300 };
+        } else if (mul >= 1.7) {
+          boostFlashRef.current = { alpha: 0.4,  color: "#ffe600", text: "BOOST!" };
+          shakeRef.current = { mag: 7, remaining: 200 };
+        } else {
+          boostFlashRef.current = { alpha: 0.25, color: "#ffffff", text: "BOOST" };
+        }
+      }
+      if (!st.player.boost.active) speedLinesRef.current = [];
+
+      if (speedLinesRef.current.length > 0 && st.player.boost.remainingMs > 0) {
+        const alpha = Math.min(0.45, (st.player.boost.remainingMs / DRIFT_BOOST_DURATIONS[2]) * 0.5);
         c.save();
-        c.translate(playerScreenX, playerScreenY);
-        c.rotate((st.player.spinOutMs / 100) * Math.PI * 0.3);
-        c.translate(-playerScreenX, -playerScreenY);
-        drawCar(c, playerScreenX, playerScreenY, playerScale, st.player.spriteAngle, playerCar, false);
+        c.strokeStyle = `rgba(255,200,80,${alpha})`;
+        c.lineWidth = 1.5;
+        for (const l of speedLinesRef.current) {
+          c.beginPath(); c.moveTo(l.x1, l.y1); c.lineTo(l.x2, l.y2); c.stroke();
+        }
         c.restore();
       }
 
-      // 6. HUD
+      // 11. Boost flash overlay
+      if (boostFlashRef.current) {
+        const bf = boostFlashRef.current;
+        const hexAlpha = Math.round(bf.alpha * 255).toString(16).padStart(2, "0");
+        c.fillStyle = bf.color + hexAlpha;
+        c.fillRect(0, 0, w, h);
+        if (bf.alpha > 0.1) {
+          const fs = Math.round(w * 0.055);
+          c.font = `${fs}px "Press Start 2P", monospace`;
+          c.textAlign = "center";
+          c.textBaseline = "middle";
+          c.fillStyle = "#ffffff";
+          c.shadowColor = bf.color;
+          c.shadowBlur = 20;
+          c.fillText(bf.text, w / 2, h * 0.35);
+          c.shadowBlur = 0;
+        }
+        boostFlashRef.current = { ...bf, alpha: bf.alpha - 0.022 };
+        if (boostFlashRef.current.alpha <= 0) boostFlashRef.current = null;
+      }
+
+      // Power-up use flash
+      if (puFlashRef.current) {
+        const hexAlpha = Math.round(puFlashRef.current.alpha * 255).toString(16).padStart(2,"0");
+        c.fillStyle = puFlashRef.current.color + hexAlpha;
+        c.fillRect(0, 0, w, h);
+        puFlashRef.current = { ...puFlashRef.current, alpha: puFlashRef.current.alpha - 0.05 };
+        if (puFlashRef.current.alpha <= 0) puFlashRef.current = null;
+      }
+
+      // 12. Lap notification
+      if (st.lap > prevLapNotifRef.current && st.lap > 1 && st.status === "racing") {
+        const lapNum = Math.min(st.lap - 1, st.totalLaps);
+        const lapMs  = st.lapTimes[st.lapTimes.length - 1] ?? 0;
+        lapNotifRef.current = {
+          text: `LAP ${lapNum}/${st.totalLaps}`,
+          subText: formatTime(lapMs),
+          subColor: "#ffffff",
+          slideY: -60,
+          alpha: 1,
+        };
+      }
+      prevLapNotifRef.current = st.lap;
+
+      if (lapNotifRef.current) {
+        const n = lapNotifRef.current;
+        n.slideY = Math.min(n.slideY + 3, h * 0.22);
+        const fs = Math.round(w * 0.038);
+        c.textAlign = "center";
+        c.textBaseline = "middle";
+        c.font = `${fs}px "Press Start 2P", monospace`;
+        c.fillStyle = `rgba(255,200,50,${n.alpha})`;
+        c.shadowColor = "#f97316";
+        c.shadowBlur = 12;
+        c.fillText(n.text, w / 2, n.slideY);
+        c.font = `${Math.round(fs * 0.65)}px "Press Start 2P", monospace`;
+        const subHex = Math.round(n.alpha * 255).toString(16).padStart(2,"0");
+        c.fillStyle = n.subColor + subHex;
+        c.fillText(n.subText, w / 2, n.slideY + fs * 1.4);
+        c.shadowBlur = 0;
+        lapNotifRef.current = { ...n, alpha: n.alpha - 0.008 };
+        if (lapNotifRef.current.alpha <= 0) lapNotifRef.current = null;
+      }
+
+      // Drift level notification
+      if (st.player.drift.level > prevDriftLevelRef.current && st.player.drift.level > 0) {
+        const colors = ["", "#ffffff", "#ffe600", "#ff6600"];
+        lvlNotifRef.current = { text: `LV${st.player.drift.level}!`, alpha: 1.0, color: colors[st.player.drift.level] };
+      }
+      if (lvlNotifRef.current) {
+        const lv = lvlNotifRef.current;
+        c.font = `${Math.round(w * 0.032)}px "Press Start 2P", monospace`;
+        c.textAlign = "center";
+        c.textBaseline = "middle";
+        const lvHex = Math.round(lv.alpha * 255).toString(16).padStart(2,"0");
+        c.fillStyle = lv.color + lvHex;
+        c.shadowColor = lv.color;
+        c.shadowBlur = 10;
+        c.fillText(lv.text, w / 2, h * 0.72);
+        c.shadowBlur = 0;
+        lvlNotifRef.current = { ...lv, alpha: lv.alpha - 0.025 };
+        if (lvlNotifRef.current.alpha <= 0) lvlNotifRef.current = null;
+      }
+
+      if (shakeX !== 0 || shakeY !== 0) c.restore();
+
+      // 13. HUD (drawn after restore, doesn't shake)
       drawHUD(c, w, h, st);
 
-      // Schedule next frame
       rafRef.current = requestAnimationFrame(loop);
     }
 

@@ -96,6 +96,7 @@ export default function DriftCanvas({ state, dispatch, audio }: DriftCanvasProps
   const lvlNotifRef     = useRef<LvlNotif | null>(null);
   const puFlashRef      = useRef<{ alpha: number; color: string } | null>(null);
   const prevLapNotifRef = useRef(0);
+  const prevDriftLevelNotifRef = useRef(0);
 
   // State/audio refs — declared here so keyboard/touch handlers can access them
   const stateRef = useRef(state);
@@ -843,10 +844,12 @@ export default function DriftCanvas({ state, dispatch, audio }: DriftCanvasProps
       }
 
       // Drift level notification
-      if (st.player.drift.level > prevDriftLevelRef.current && st.player.drift.level > 0) {
+      if (!st.player.drift.active) prevDriftLevelNotifRef.current = 0;
+      if (st.player.drift.level > prevDriftLevelNotifRef.current && st.player.drift.level > 0) {
         const colors = ["", "#ffffff", "#ffe600", "#ff6600"];
         lvlNotifRef.current = { text: `LV${st.player.drift.level}!`, alpha: 1.0, color: colors[st.player.drift.level] };
       }
+      prevDriftLevelNotifRef.current = st.player.drift.level;
       if (lvlNotifRef.current) {
         const lv = lvlNotifRef.current;
         c.font = `${Math.round(w * 0.032)}px "Press Start 2P", monospace`;

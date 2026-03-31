@@ -27,6 +27,26 @@ import type {
   Ghost,
   Position,
 } from "@/games/pacman/types";
+import type { GameHelp } from "@/lib/gameHelp";
+
+const HELP: GameHelp = {
+  objective: "Eat every dot in the maze to complete the level. Avoid ghosts — getting caught costs a life. Eat power pellets to turn the tables!",
+  controls: [
+    { key: "Arrow Keys", action: "Move Pixel Chomp" },
+    { key: "W A S D", action: "Move (alternate)" },
+    { key: "Swipe", action: "Move on mobile" },
+  ],
+  scoring: [
+    { icon: "🔵", name: "DOTS", desc: "Each dot scores 10 points. Clear the whole maze to advance to the next level." },
+    { icon: "🍒", name: "FRUIT BONUS", desc: "Fruit appears in the maze center periodically. Each level brings a different fruit worth more points." },
+    { icon: "👻", name: "GHOST COMBO", desc: "Eating multiple ghosts in a single power session multiplies: 200 > 400 > 800 > 1600 points." },
+  ],
+  specials: [
+    { icon: "⚡", name: "POWER PELLET", desc: "Eat a large flashing pellet to make all ghosts vulnerable and turn blue — chase and eat them for big points!" },
+    { icon: "🌫", name: "FOG OF WAR", desc: "Optional setting that limits your visibility. Listen for audio cues — ghost proximity affects the soundtrack." },
+    { icon: "⚙️", name: "SETTINGS", desc: "Adjust ghost speed, power duration, maze layout, and ghost count from the settings panel." },
+  ],
+};
 
 const GAME_KEY = "pacman";
 const MAZE_COLS = 28;
@@ -563,7 +583,6 @@ function getComboProgress(combo: number): number {
 }
 
 export default function PacmanPage() {
-  const [gameMode, setGameMode] = useState<"classic" | "survival">("classic");
   const [modifiers, setModifiers] = useState<GameModifiers>(DEFAULT_MODIFIERS);
   const [state, dispatch] = useReducer(pacmanReducer, undefined, () =>
     createInitialState(DEFAULT_MODIFIERS),
@@ -818,6 +837,8 @@ export default function PacmanPage() {
       score={state.score}
       highScore={highScore}
       onNewGame={() => dispatch({ type: "START", modifiers })}
+      helpContent={HELP}
+      gameKey="pacman"
       actions={
         <>
           <MuteButton muted={muted} onToggle={() => setMuted((m) => !m)} color="orange" />
@@ -863,20 +884,23 @@ export default function PacmanPage() {
         />
       )}
 
-      {/* Combo progress bar */}
-      {state.modifiers.gameMode === "survival" && state.combo > 0 && (
-        <div className="flex justify-center">
-          <div className="w-40 h-1 bg-gray-800 overflow-hidden">
-            <div
-              className="h-full transition-all duration-100"
-              style={{
-                width: `${getComboProgress(state.combo)}%`,
-                backgroundColor: getComboColor(state.combo),
-              }}
-            />
-          </div>
+      {/* Game content wrapper — must be a single child for GameLayout's flex centering */}
+      <div className="flex flex-col items-center gap-2">
+      {/* Combo progress bar — always rendered to reserve space, invisible when inactive */}
+      <div
+        className="flex justify-center"
+        style={{ visibility: state.modifiers.gameMode === "survival" && state.combo > 0 ? "visible" : "hidden" }}
+      >
+        <div className="w-40 h-1 bg-gray-800 overflow-hidden">
+          <div
+            className="h-full transition-all duration-100"
+            style={{
+              width: `${getComboProgress(state.combo)}%`,
+              backgroundColor: getComboColor(state.combo),
+            }}
+          />
         </div>
-      )}
+      </div>
 
       {/* Maze board */}
       <div
@@ -994,7 +1018,7 @@ export default function PacmanPage() {
           <div className="absolute inset-0 bg-dark-bg/30 backdrop-blur-sm" />
           <div className="relative flex flex-col items-center gap-4 pointer-events-auto">
             <div className="text-5xl animate-[floatUp_1s_ease-out_infinite_alternate]">
-              👾
+              👻
             </div>
             <h2 className="text-sm neon-text-orange animate-[victoryGlowOrange_1.5s_ease-in-out_infinite]">
               PIXEL CHOMP
@@ -1008,9 +1032,9 @@ export default function PacmanPage() {
             {/* Mode selector */}
             <div className="flex gap-2 mb-2">
               <button
-                onClick={() => { setGameMode("classic"); setModifiers(m => ({...m, gameMode: "classic"})); }}
+                onClick={() => setModifiers(m => ({...m, gameMode: "classic"}))}
                 className={`text-[0.5rem] px-3 py-1 border ${
-                  gameMode === "classic"
+                  modifiers.gameMode === "classic"
                     ? "border-neon-orange text-neon-orange neon-text-orange"
                     : "border-gray-600 text-gray-500"
                 } transition-colors`}
@@ -1018,9 +1042,9 @@ export default function PacmanPage() {
                 CLASSIC
               </button>
               <button
-                onClick={() => { setGameMode("survival"); setModifiers(m => ({...m, gameMode: "survival"})); }}
+                onClick={() => setModifiers(m => ({...m, gameMode: "survival"}))}
                 className={`text-[0.5rem] px-3 py-1 border ${
-                  gameMode === "survival"
+                  modifiers.gameMode === "survival"
                     ? "border-neon-orange text-neon-orange neon-text-orange"
                     : "border-gray-600 text-gray-500"
                 } transition-colors`}
@@ -1041,7 +1065,7 @@ export default function PacmanPage() {
           <div className="absolute inset-0 bg-dark-bg/30 backdrop-blur-sm" />
           <div className="relative flex flex-col items-center gap-4 pointer-events-auto">
             <div className="text-5xl animate-[floatUp_1s_ease-out_infinite_alternate]">
-              👾
+              👻
             </div>
             <h2 className="text-lg sm:text-xl neon-text-orange animate-[victoryGlowOrange_1.5s_ease-in-out_infinite]">
               LEVEL CLEAR!
@@ -1049,6 +1073,28 @@ export default function PacmanPage() {
             <p className="text-[0.6rem] text-neon-orange/70">
               SCORE: {state.score} · BEST: {highScore}
             </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setModifiers(m => ({...m, gameMode: "classic"}))}
+                className={`text-[0.5rem] px-3 py-1 border transition-colors ${
+                  modifiers.gameMode === "classic"
+                    ? "border-neon-orange text-neon-orange"
+                    : "border-gray-600 text-gray-500"
+                }`}
+              >
+                CLASSIC
+              </button>
+              <button
+                onClick={() => setModifiers(m => ({...m, gameMode: "survival"}))}
+                className={`text-[0.5rem] px-3 py-1 border transition-colors ${
+                  modifiers.gameMode === "survival"
+                    ? "border-neon-orange text-neon-orange"
+                    : "border-gray-600 text-gray-500"
+                }`}
+              >
+                SURVIVAL
+              </button>
+            </div>
             <PixelButton color="orange" onClick={() => dispatch({ type: "NEXT_LEVEL" })}>
               NEXT LEVEL
             </PixelButton>
@@ -1070,6 +1116,28 @@ export default function PacmanPage() {
             <p className="text-[0.6rem] text-neon-pink/70">
               SCORE: {state.score} · BEST: {highScore}
             </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setModifiers(m => ({...m, gameMode: "classic"}))}
+                className={`text-[0.5rem] px-3 py-1 border transition-colors ${
+                  modifiers.gameMode === "classic"
+                    ? "border-neon-pink text-neon-pink"
+                    : "border-gray-600 text-gray-500"
+                }`}
+              >
+                CLASSIC
+              </button>
+              <button
+                onClick={() => setModifiers(m => ({...m, gameMode: "survival"}))}
+                className={`text-[0.5rem] px-3 py-1 border transition-colors ${
+                  modifiers.gameMode === "survival"
+                    ? "border-neon-pink text-neon-pink"
+                    : "border-gray-600 text-gray-500"
+                }`}
+              >
+                SURVIVAL
+              </button>
+            </div>
             <PixelButton color="pink" onClick={() => dispatch({ type: "START", modifiers })}>
               TRY AGAIN
             </PixelButton>
@@ -1081,6 +1149,7 @@ export default function PacmanPage() {
       {isTouchDevice() && state.status === "playing" && (
         <p className="text-[0.4rem] text-gray-600 mt-2">SWIPE TO TURN</p>
       )}
+      </div>
     </GameLayout>
   );
 }

@@ -11,6 +11,26 @@ import DriftCanvas from "@/games/drift/DriftCanvas";
 import Menu from "@/games/drift/Menu";
 import type { GameMode } from "@/games/drift/types";
 import { POSITION_SCORES, TRACKS } from "@/games/drift/config";
+import type { GameHelp } from "@/lib/gameHelp";
+
+const HELP: GameHelp = {
+  objective: "Race to the finish line or set the fastest lap time. Master drifting to build boost and unleash speed surges at the right moment.",
+  controls: [
+    { key: "Up / W", action: "Accelerate" },
+    { key: "Down / S", action: "Brake / Reverse" },
+    { key: "Left / Right", action: "Steer" },
+    { key: "A / D", action: "Steer (alternate)" },
+  ],
+  scoring: [
+    { icon: "🏆", name: "RACE MODE", desc: "Finish position determines score — 1st place scores maximum points." },
+    { icon: "⏱", name: "TIME ATTACK", desc: "Beat your best lap time to set a new record. No opponents, pure precision driving." },
+  ],
+  specials: [
+    { icon: "🌀", name: "DRIFT", desc: "Hold a turn while accelerating to enter a drift. The longer you drift, the more boost bar you fill." },
+    { icon: "⚡", name: "BOOST", desc: "When the boost bar is full, release the drift for a powerful speed surge." },
+    { icon: "👻", name: "GHOST REPLAY", desc: "In Time Attack mode, your best lap is recorded as a ghost car you race against next time." },
+  ],
+};
 
 const GAME_KEY = "drift";
 const MUTE_KEY = "gamestation-drift-muted";
@@ -74,16 +94,6 @@ export default function DriftPage() {
     return () => clearInterval(id);
   }, [state.status]);
 
-  // Countdown audio cues
-  useEffect(() => {
-    if (state.status === "countdown" && state.countdown > 0) {
-      audioRef.current?.playCountdown();
-    }
-    if (state.status === "countdown" && state.countdown === 0) {
-      audioRef.current?.playGo();
-    }
-  }, [state.countdown, state.status]);
-
   // Load ghost replay data from localStorage for Time Attack mode
   const loadGhostZ = useCallback((trackSlug: string): number[] => {
     try {
@@ -100,7 +110,7 @@ export default function DriftPage() {
 
   // Start game from menu
   const handleStart = useCallback(
-    (mode: GameMode, trackIndex: number, carIndex: number) => {
+    (mode: GameMode, carIndex: number, trackIndex: number) => {
       const trackSlug = TRACKS[trackIndex].slug;
       const bt = mode === "timeAttack" ? getBestTime(`${GAME_KEY}-${trackSlug}`) : null;
       const ghostZ = mode === "timeAttack" ? loadGhostZ(trackSlug) : [];
@@ -180,6 +190,8 @@ export default function DriftPage() {
       timer={showTimer ? elapsedSec : undefined}
       onNewGame={phase === "playing" ? handleBackToMenu : undefined}
       actions={<MuteButton muted={muted} onToggle={() => setMuted((m) => !m)} color="orange" />}
+      helpContent={HELP}
+      gameKey="drift"
     >
       {phase === "menu" ? (
         <Menu onStart={handleStart} />

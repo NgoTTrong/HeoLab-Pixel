@@ -4,6 +4,28 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import PixelButton from "@/components/PixelButton";
 import MuteButton from "@/components/MuteButton";
+import type { GameHelp } from "@/lib/gameHelp";
+import HelpModal from "@/components/HelpModal";
+
+const HELP: GameHelp = {
+  objective: "Shoot down alien waves before they reach the bottom. Survive all waves and defeat boss encounters to achieve the highest score.",
+  controls: [
+    { key: "Left / Right", action: "Move ship" },
+    { key: "A / D", action: "Move ship (alternate)" },
+    { key: "Space", action: "Shoot" },
+  ],
+  scoring: [
+    { icon: "👾", name: "ALIEN KILLS", desc: "Each alien scores points. Tougher aliens (zigzag, kamikaze, shielded) score more." },
+    { icon: "👹", name: "BOSS BONUS", desc: "Defeating a boss scores a large bonus and advances to the next wave set." },
+  ],
+  specials: [
+    { icon: "⚡", name: "RAPID FIRE", desc: "Pick up the rapid-fire power-up to greatly increase your fire rate for a limited time." },
+    { icon: "🛡", name: "SHIELD", desc: "Shield power-up absorbs one hit completely — a lifesaver in dense waves." },
+    { icon: "💣", name: "BOMB", desc: "Clears all enemy bullets on screen instantly when collected." },
+    { icon: "👹", name: "BOSS TYPES", desc: "Spreader fires wide bursts. Summoner shields and calls minions. Sniper teleports and fires precise charge shots." },
+    { icon: "🎯", name: "ALIEN TYPES", desc: "Zigzag aliens weave unpredictably. Kamikaze aliens dive straight at you. Shielded aliens require two hits." },
+  ],
+};
 import {
   POWER_UPS, WAVE_PATTERNS, COLS, ROWS, ALIEN_SIZE, ALIEN_GAP,
   BULLET_SPEED, ALIEN_BULLET_SPEED, SHIP_SPEED, ALIEN_SHOOT_INTERVAL,
@@ -82,6 +104,16 @@ export default function SpacePage() {
     if (typeof window === "undefined") return false;
     return localStorage.getItem("space-sound-muted") === "1";
   });
+  const [helpOpen, setHelpOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const key = "gamestation-space-help-seen";
+    if (!localStorage.getItem(key)) {
+      setHelpOpen(true);
+      localStorage.setItem(key, "1");
+    }
+  }, []);
 
   const gameRef = useRef({
     status: "idle" as GameStatus,
@@ -1040,6 +1072,14 @@ export default function SpacePage() {
         {activePowerUpLabel && (
           <span className="text-neon-yellow animate-pulse">{activePowerUpLabel}</span>
         )}
+        <button
+          onClick={() => setHelpOpen(true)}
+          className="text-[0.5rem] text-neon-blue hover:opacity-80 transition-opacity border border-neon-blue/60 px-1.5 py-0.5"
+          style={{ fontFamily: "var(--font-press-start), monospace" }}
+          aria-label="How to play"
+        >
+          ?
+        </button>
       </div>
 
       <div className="relative">
@@ -1085,6 +1125,14 @@ export default function SpacePage() {
       <p className="text-[0.45rem] font-pixel text-gray-600">
         ← → MOVE · HOLD SPACE SHOOT · BOSS EVERY {BOSS_EVERY_N_WAVES} WAVES
       </p>
+
+      {helpOpen && (
+        <HelpModal
+          help={HELP}
+          color="blue"
+          onClose={() => setHelpOpen(false)}
+        />
+      )}
     </div>
   );
 }

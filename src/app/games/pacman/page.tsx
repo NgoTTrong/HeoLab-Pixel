@@ -1040,29 +1040,52 @@ export default function PacmanPage() {
             >
               {isTouchDevice() ? "SWIPE TO START" : "PRESS SPACE OR ARROW TO START"}
             </p>
-            {/* Mode selector */}
-            <div className="flex gap-2 mb-2">
+
+            {/* Mode buttons — Survival is primary */}
+            <div className="flex flex-col items-center gap-2 w-full">
               <button
-                onClick={() => setModifiers(m => ({...m, gameMode: "classic"}))}
-                className={`text-[0.5rem] px-3 py-1 border ${
-                  modifiers.gameMode === "classic"
-                    ? "border-neon-orange text-neon-orange neon-text-orange"
-                    : "border-gray-600 text-gray-500"
-                } transition-colors`}
+                onClick={() => setModifiers(m => ({ ...m, gameMode: "survival" }))}
+                className="relative px-4 py-2 border text-[0.5rem] uppercase tracking-wider transition-all w-40"
+                style={{
+                  borderColor: modifiers.gameMode === "survival" ? "#f97316" : "#444",
+                  backgroundColor: modifiers.gameMode === "survival" ? "#f9731615" : "transparent",
+                  color: modifiers.gameMode === "survival" ? "#f97316" : "#666",
+                  fontFamily: "var(--font-pixel), monospace",
+                }}
+              >
+                SURVIVAL
+                {modifiers.gameMode === "survival" && (
+                  <span
+                    className="absolute -top-2 left-1/2 -translate-x-1/2 text-[0.35rem] px-1.5 py-0.5"
+                    style={{ backgroundColor: "#f97316", color: "#000" }}
+                  >
+                    REC
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => setModifiers(m => ({ ...m, gameMode: "classic" }))}
+                className="px-4 py-1.5 border text-[0.45rem] uppercase tracking-wider transition-all w-40"
+                style={{
+                  borderColor: modifiers.gameMode === "classic" ? "#888" : "#333",
+                  backgroundColor: "transparent",
+                  color: modifiers.gameMode === "classic" ? "#aaa" : "#444",
+                  fontFamily: "var(--font-pixel), monospace",
+                }}
               >
                 CLASSIC
               </button>
-              <button
-                onClick={() => setModifiers(m => ({...m, gameMode: "survival"}))}
-                className={`text-[0.5rem] px-3 py-1 border ${
-                  modifiers.gameMode === "survival"
-                    ? "border-neon-orange text-neon-orange neon-text-orange"
-                    : "border-gray-600 text-gray-500"
-                } transition-colors`}
-              >
-                SURVIVAL
-              </button>
             </div>
+
+            {/* Feature badges — only shown for survival */}
+            {modifiers.gameMode === "survival" && (
+              <div className="flex gap-3 text-[0.4rem] text-gray-500">
+                <span>🌫 FOG</span>
+                <span>🧠 GHOST AI</span>
+                <span>⚡ COMBO</span>
+              </div>
+            )}
+
             <PixelButton color="orange" onClick={() => dispatch({ type: "START", modifiers })}>
               PLAY
             </PixelButton>
@@ -1084,28 +1107,6 @@ export default function PacmanPage() {
             <p className="text-[0.6rem] text-neon-orange/70">
               SCORE: {state.score} · BEST: {highScore}
             </p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setModifiers(m => ({...m, gameMode: "classic"}))}
-                className={`text-[0.5rem] px-3 py-1 border transition-colors ${
-                  modifiers.gameMode === "classic"
-                    ? "border-neon-orange text-neon-orange"
-                    : "border-gray-600 text-gray-500"
-                }`}
-              >
-                CLASSIC
-              </button>
-              <button
-                onClick={() => setModifiers(m => ({...m, gameMode: "survival"}))}
-                className={`text-[0.5rem] px-3 py-1 border transition-colors ${
-                  modifiers.gameMode === "survival"
-                    ? "border-neon-orange text-neon-orange"
-                    : "border-gray-600 text-gray-500"
-                }`}
-              >
-                SURVIVAL
-              </button>
-            </div>
             <PixelButton color="orange" onClick={() => dispatch({ type: "NEXT_LEVEL" })}>
               NEXT LEVEL
             </PixelButton>
@@ -1127,28 +1128,6 @@ export default function PacmanPage() {
             <p className="text-[0.6rem] text-neon-pink/70">
               SCORE: {state.score} · BEST: {highScore}
             </p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setModifiers(m => ({...m, gameMode: "classic"}))}
-                className={`text-[0.5rem] px-3 py-1 border transition-colors ${
-                  modifiers.gameMode === "classic"
-                    ? "border-neon-pink text-neon-pink"
-                    : "border-gray-600 text-gray-500"
-                }`}
-              >
-                CLASSIC
-              </button>
-              <button
-                onClick={() => setModifiers(m => ({...m, gameMode: "survival"}))}
-                className={`text-[0.5rem] px-3 py-1 border transition-colors ${
-                  modifiers.gameMode === "survival"
-                    ? "border-neon-pink text-neon-pink"
-                    : "border-gray-600 text-gray-500"
-                }`}
-              >
-                SURVIVAL
-              </button>
-            </div>
             <PixelButton color="pink" onClick={() => dispatch({ type: "START", modifiers })}>
               TRY AGAIN
             </PixelButton>

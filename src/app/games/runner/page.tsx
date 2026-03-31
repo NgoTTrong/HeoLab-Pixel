@@ -536,7 +536,7 @@ export default function RunnerPage() {
           <MuteButton muted={muted} onToggle={() => setMuted(m => !m)} color="green" />
           <button
             onClick={() => setHelpOpen(true)}
-            className="text-[0.5rem] text-neon-orange hover:opacity-80 transition-opacity border border-neon-orange/60 px-1.5 py-0.5"
+            className="text-[0.5rem] text-neon-green hover:opacity-80 transition-opacity border border-neon-green/60 px-1.5 py-0.5"
             style={{ fontFamily: "var(--font-press-start), monospace" }}
             aria-label="How to play"
           >
@@ -641,7 +641,7 @@ export default function RunnerPage() {
       {helpOpen && (
         <HelpModal
           help={HELP}
-          color="orange"
+          color="green"
           onClose={() => setHelpOpen(false)}
         />
       )}

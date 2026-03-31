@@ -619,6 +619,16 @@ export default function PacmanPage() {
   const prevEvolutionTierRef = useRef<"basic" | "aware" | "evolved">("basic");
   const evolutionAlertTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  interface BannerEntry {
+    text: string;
+    color: string;
+    duration: number;
+  }
+  const [activeBanner, setActiveBanner] = useState<BannerEntry | null>(null);
+  const [mazeFlashing, setMazeFlashing] = useState(false);
+  const bannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevMilestoneRef = useRef<string | null>(null);
+
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const audioRef = useRef<PacmanAudio | null>(null);
@@ -736,6 +746,33 @@ export default function PacmanPage() {
       prevEvolutionTierRef.current = curr;
     }
   }, [state.evolutionTier, state.modifiers.gameMode]);
+
+  // Combo milestone sweep banner
+  useEffect(() => {
+    if (state.modifiers.gameMode !== "survival") return;
+    if (!state.milestonePopup || state.milestonePopup === prevMilestoneRef.current) return;
+    if (state.milestonePopupTimer <= 0) return;
+
+    prevMilestoneRef.current = state.milestonePopup;
+
+    const bannerMap: Record<string, BannerEntry> = {
+      "BLAZING!":     { text: "BLAZING!",     color: "#ffe600", duration: 1500 },
+      "UNSTOPPABLE!": { text: "UNSTOPPABLE!", color: "#f97316", duration: 1500 },
+      "LEGENDARY!":   { text: "LEGENDARY!",   color: "#ff2d55", duration: 2000 },
+    };
+
+    const banner = bannerMap[state.milestonePopup];
+    if (!banner) return;
+
+    setActiveBanner(banner);
+    if (bannerTimerRef.current) clearTimeout(bannerTimerRef.current);
+    bannerTimerRef.current = setTimeout(() => setActiveBanner(null), banner.duration);
+
+    if (state.milestonePopup === "LEGENDARY!") {
+      setMazeFlashing(true);
+      setTimeout(() => setMazeFlashing(false), 350);
+    }
+  }, [state.milestonePopup, state.milestonePopupTimer, state.modifiers.gameMode]);
 
   // Audio: death or level complete
   useEffect(() => {
@@ -909,7 +946,10 @@ export default function PacmanPage() {
       color="orange"
       score={state.score}
       highScore={highScore}
-      onNewGame={() => dispatch({ type: "START", modifiers })}
+      onNewGame={() => {
+        prevMilestoneRef.current = null;
+        dispatch({ type: "START", modifiers });
+      }}
       helpContent={HELP}
       gameKey="pacman"
       actions={
@@ -981,7 +1021,7 @@ export default function PacmanPage() {
           state.status === "dead" || evolutionAlert === "evolved"
             ? "animate-[screenShake_0.5s_ease-in-out]"
             : ""
-        }`}
+        } ${mazeFlashing ? "maze-flash" : ""}`}
         style={{
           width: boardWidth,
           height: boardHeight,
@@ -1144,18 +1184,32 @@ export default function PacmanPage() {
           </div>
         )}
 
-        {/* Milestone popup */}
-        {state.modifiers.gameMode === "survival" && state.milestonePopup && (
-          <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
-            <span
-              className="text-sm sm:text-base font-bold animate-[floatUp_1.5s_ease-out_forwards]"
-              style={{ color: getComboColor(state.combo), textShadow: `0 0 10px ${getComboColor(state.combo)}` }}
-            >
-              {state.milestonePopup}
-            </span>
-          </div>
-        )}
       </div>
+
+      {/* Combo milestone sweep banner */}
+      {activeBanner && (
+        <div
+          className="pointer-events-none overflow-hidden"
+          style={{ width: boardWidth, height: cellSize * 2 }}
+        >
+          <div
+            className="flex items-center justify-center h-full"
+            style={{
+              animation: `bannerSweep ${activeBanner.duration}ms ease-in-out forwards`,
+              color: activeBanner.color,
+              textShadow: `0 0 12px ${activeBanner.color}, 0 0 24px ${activeBanner.color}`,
+              fontFamily: "var(--font-pixel), monospace",
+              fontSize: cellSize * 0.9,
+              letterSpacing: "0.1em",
+              borderTop: `1px solid ${activeBanner.color}40`,
+              borderBottom: `1px solid ${activeBanner.color}40`,
+              backgroundColor: `${activeBanner.color}08`,
+            }}
+          >
+            {activeBanner.text}
+          </div>
+        </div>
+      )}
 
       {/* Idle overlay */}
       {state.status === "idle" && (

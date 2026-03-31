@@ -13,7 +13,7 @@ import {
   SPEED_PER_RATING,
 } from "./config";
 import { projectSegments, drawSky, drawRoad, drawParallax } from "./road";
-import { drawCar, drawSmoke, drawPowerUpBox } from "./sprites";
+import { drawCar, drawPowerUpBox } from "./sprites";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -595,13 +595,7 @@ export default function DriftCanvas({ state, dispatch, audio }: DriftCanvasProps
       const playerScale = 1;
       const isDrifting = st.player.drift.active;
 
-      drawCar(c, playerScreenX, playerScreenY, playerScale, st.player.spriteAngle, playerCar, isDrifting);
-
-      // Drift smoke behind player
-      if (isDrifting) {
-        const smokeIntensity = Math.min(1, st.player.drift.chargeMs / 3000);
-        drawSmoke(c, playerScreenX, playerScreenY + 10, playerScale, smokeIntensity);
-      }
+      drawCar(c, playerScreenX, playerScreenY, playerScale, st.player.spriteAngle, playerCar, isDrifting, st.player.drift.chargeMs);
 
       // Shield visual indicator
       if (st.player.shieldMs > 0) {

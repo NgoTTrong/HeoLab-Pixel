@@ -51,6 +51,8 @@ export function projectSegments(
   }
 }
 
+const NIGHT_TRACKS = new Set(["city", "cyber"]);
+
 /**
  * Render the sky gradient.
  */
@@ -59,12 +61,26 @@ export function drawSky(
   w: number,
   h: number,
   palette: TrackPalette,
+  scenery: string,
 ): void {
-  const grad = ctx.createLinearGradient(0, 0, 0, h / 2);
-  grad.addColorStop(0, palette.sky1);
-  grad.addColorStop(1, palette.sky2);
+  const grad = ctx.createLinearGradient(0, 0, 0, h * 0.42);
+  grad.addColorStop(0,   palette.sky1);
+  grad.addColorStop(0.6, palette.sky2);
+  grad.addColorStop(1,   palette.fog);
   ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, w, h / 2);
+  ctx.fillRect(0, 0, w, h * 0.42);
+
+  if (NIGHT_TRACKS.has(scenery)) {
+    const PHI = 1.6180339887;
+    for (let i = 0; i < 55; i++) {
+      const sx = ((i * PHI * 97.3) % 1) * w;
+      const sy = ((i * PHI * 53.1) % 1) * h * 0.36;
+      const sz = i % 3 === 0 ? 1.5 : 1;
+      const alpha = 0.35 + (i % 5) * 0.10;
+      ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+      ctx.fillRect(sx, sy, sz, sz);
+    }
+  }
 }
 
 /**
@@ -81,51 +97,59 @@ export function drawRoad(
   const segIdx = Math.floor(cameraZ / SEGMENT_LENGTH);
   const segCount = segments.length;
 
-  // Fill ground below horizon first
   ctx.fillStyle = palette.grass1;
   ctx.fillRect(0, h * 0.4, w, h * 0.6);
 
-  // Draw from farthest to nearest
   for (let i = VISIBLE_SEGMENTS - 1; i > 0; i--) {
     const rawIdx = segIdx + i;
-    const idx = ((rawIdx % segCount) + segCount) % segCount;
-    const rawPrev = segIdx + i - 1;
-    const prevIdx = ((rawPrev % segCount) + segCount) % segCount;
+    const idx     = ((rawIdx     % segCount) + segCount) % segCount;
+    const prevIdx = (((rawIdx-1) % segCount) + segCount) % segCount;
 
-    const seg = segments[idx];
+    const seg     = segments[idx];
     const prevSeg = segments[prevIdx];
 
     if (!seg.screen || !prevSeg.screen || seg.screen.scale <= 0) continue;
-
-    const s1 = seg.screen;      // farther segment (higher on screen)
-    const s2 = prevSeg.screen;  // nearer segment (lower on screen)
-
-    // Skip degenerate strips
+    const s1 = seg.screen;
+    const s2 = prevSeg.screen;
     if (s1.y >= s2.y) continue;
 
-    const isEven = (rawIdx) % 2 === 0;
+    const isEven = rawIdx % 2 === 0;
+    const stripH = Math.ceil(s2.y - s1.y) + 1;
 
-    // Ground/grass strip
+    // Ground strip
     ctx.fillStyle = isEven ? palette.grass1 : palette.grass2;
-    ctx.fillRect(0, Math.floor(s1.y), w, Math.ceil(s2.y - s1.y) + 1);
+    ctx.fillRect(0, Math.floor(s1.y), w, stripH);
 
-    // Rumble strips (wider than road)
-    const rumbleW1 = s1.w * 1.2;
-    const rumbleW2 = s2.w * 1.2;
-    const rumbleColor = isEven ? palette.rumble1 : palette.rumble2;
-    drawTrapezoid(ctx, s1.x, s1.y, rumbleW1, s2.x, s2.y, rumbleW2, rumbleColor);
+    // Rumble strips
+    drawTrapezoid(ctx, s1.x, s1.y, s1.w * 1.25, s2.x, s2.y, s2.w * 1.25,
+      isEven ? palette.rumble1 : palette.rumble2);
 
     // Road surface
-    const roadColor = isEven ? palette.road1 : palette.road2;
-    drawTrapezoid(ctx, s1.x, s1.y, s1.w, s2.x, s2.y, s2.w, roadColor);
+    drawTrapezoid(ctx, s1.x, s1.y, s1.w, s2.x, s2.y, s2.w,
+      isEven ? palette.road1 : palette.road2);
 
-    // Lane markings (dashed center line)
+    // Lane center markings (dashed)
     if (isEven) {
-      const laneW1 = s1.w * 0.02;
-      const laneW2 = s2.w * 0.02;
-      drawTrapezoid(ctx, s1.x, s1.y, laneW1, s2.x, s2.y, laneW2, palette.lane);
+      const lw1 = s1.w * 0.03;
+      const lw2 = s2.w * 0.03;
+      drawTrapezoid(ctx, s1.x, s1.y, lw1, s2.x, s2.y, lw2, palette.lane);
     }
+
+    // Shoulder lines (solid, both sides)
+    const sw1 = s1.w * 0.01;
+    const sw2 = s2.w * 0.01;
+    const so1 = s1.w * 0.92;
+    const so2 = s2.w * 0.92;
+    drawTrapezoid(ctx, s1.x - so1, s1.y, sw1, s2.x - so2, s2.y, sw2, palette.lane);
+    drawTrapezoid(ctx, s1.x + so1, s1.y, sw1, s2.x + so2, s2.y, sw2, palette.lane);
   }
+
+  // Depth fog overlay near horizon
+  const fogGrad = ctx.createLinearGradient(0, h * 0.38, 0, h * 0.58);
+  fogGrad.addColorStop(0, palette.fog + "cc");
+  fogGrad.addColorStop(1, palette.fog + "00");
+  ctx.fillStyle = fogGrad;
+  ctx.fillRect(0, h * 0.38, w, h * 0.20);
 }
 
 /** Draw a filled trapezoid between two horizontal lines */
@@ -142,6 +166,118 @@ function drawTrapezoid(
   ctx.lineTo(x2 + w2, y2);
   ctx.lineTo(x2 - w2, y2);
   ctx.closePath();
+  ctx.fill();
+}
+
+/**
+ * Draw roadside scenery objects scaled by distance.
+ * Called after road, before cars in the draw order.
+ */
+export function drawScenery(
+  ctx: CanvasRenderingContext2D,
+  segments: Segment[],
+  cameraZ: number,
+  w: number,
+  h: number,
+  scenery: "city" | "mountain" | "desert" | "cyber",
+): void {
+  const segIdx = Math.floor(cameraZ / SEGMENT_LENGTH);
+  const segCount = segments.length;
+  const OBJECT_INTERVAL = 15;
+
+  for (let i = VISIBLE_SEGMENTS - 2; i > 2; i--) {
+    const rawIdx = segIdx + i;
+    if (rawIdx % OBJECT_INTERVAL !== 0) continue;
+
+    const idx = ((rawIdx % segCount) + segCount) % segCount;
+    const seg = segments[idx];
+    if (!seg.screen || seg.screen.scale <= 0) continue;
+
+    const s = seg.screen;
+    const objScale = s.scale;
+    if (objScale < 0.03) continue;
+
+    const side = (Math.floor(rawIdx / OBJECT_INTERVAL)) % 2 === 0 ? -1 : 1;
+    const objX = s.x + side * (s.w * 1.55);
+
+    ctx.save();
+    ctx.translate(objX, s.y);
+
+    switch (scenery) {
+      case "city":     drawBuilding(ctx, objScale, side, rawIdx);    break;
+      case "mountain": drawTree(ctx, objScale, rawIdx);              break;
+      case "desert":   drawCactus(ctx, objScale, rawIdx);            break;
+      case "cyber":    drawCyberPillar(ctx, objScale, rawIdx);       break;
+    }
+    ctx.restore();
+  }
+}
+
+function drawBuilding(ctx: CanvasRenderingContext2D, scale: number, side: number, seed: number): void {
+  const bw = (30 + (seed * 17) % 25) * scale;
+  const bh = (40 + (seed * 23) % 50) * scale;
+  ctx.fillStyle = `hsl(${240 + (seed % 30)}, 30%, 15%)`;
+  ctx.fillRect(side > 0 ? 0 : -bw, -bh, bw, bh);
+  ctx.fillStyle = `rgba(${seed%2===0?249:0},${seed%3===0?115:212},${seed%2===0?22:255},0.7)`;
+  const cols = Math.max(2, Math.round(bw / (6 * scale)));
+  const rows = Math.max(2, Math.round(bh / (8 * scale)));
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if ((r + c + seed) % 3 !== 0) continue;
+      const wx = (side > 0 ? 0 : -bw) + (c + 0.5) * (bw / cols);
+      const wy = -bh + (r + 0.5) * (bh / rows);
+      ctx.fillRect(wx - scale, wy - scale, scale * 2, scale * 2);
+    }
+  }
+}
+
+function drawTree(ctx: CanvasRenderingContext2D, scale: number, seed: number): void {
+  const th = (25 + (seed * 19) % 20) * scale;
+  const tw = th * 0.7;
+  ctx.fillStyle = "#3d2b1f";
+  ctx.fillRect(-scale * 1.5, 0, scale * 3, -th * 0.3);
+  ctx.fillStyle = "#1a3a1a";
+  ctx.beginPath();
+  ctx.moveTo(0, -th);
+  ctx.lineTo(-tw * 0.5, -th * 0.55);
+  ctx.lineTo(tw * 0.5, -th * 0.55);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "#153015";
+  ctx.beginPath();
+  ctx.moveTo(0, -th * 0.75);
+  ctx.lineTo(-tw * 0.6, -th * 0.3);
+  ctx.lineTo(tw * 0.6, -th * 0.3);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawCactus(ctx: CanvasRenderingContext2D, scale: number, seed: number): void {
+  const ch = (20 + (seed * 13) % 18) * scale;
+  const cw = scale * 3;
+  ctx.fillStyle = "#4a7c3f";
+  ctx.fillRect(-cw / 2, -ch, cw, ch);
+  ctx.fillRect(-cw * 3, -ch * 0.65, cw * 2.5, cw);
+  ctx.fillRect(-cw * 3, -ch * 0.85, cw, ch * 0.25);
+  ctx.fillRect(cw / 2, -ch * 0.5, cw * 2.5, cw);
+  ctx.fillRect(cw * 2.5, -ch * 0.7, cw, ch * 0.25);
+}
+
+function drawCyberPillar(ctx: CanvasRenderingContext2D, scale: number, seed: number): void {
+  const ph = (35 + (seed * 11) % 25) * scale;
+  const pw = scale * 4;
+  ctx.fillStyle = "#0a0a1a";
+  ctx.fillRect(-pw / 2, -ph, pw, ph);
+  ctx.fillStyle = seed % 2 === 0 ? "#00d4ff" : "#f97316";
+  ctx.fillRect(-pw / 2, -ph, pw * 0.3, ph);
+  ctx.save();
+  ctx.shadowColor = ctx.fillStyle;
+  ctx.shadowBlur = scale * 8;
+  ctx.fillRect(-pw / 2, -ph, pw * 0.3, ph);
+  ctx.restore();
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath();
+  ctx.arc(0, -ph, scale * 2, 0, Math.PI * 2);
   ctx.fill();
 }
 

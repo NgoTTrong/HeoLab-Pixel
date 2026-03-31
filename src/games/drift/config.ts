@@ -20,15 +20,14 @@ export const CURVE_SPEED_LOSS = 0.3;  // speed loss multiplier in curves (no dri
 // Drift
 export const DRIFT_CHARGE_RATE = 1;         // ms of charge per ms of drifting
 export const DRIFT_LEVEL_THRESHOLDS = [0, 2000, 4000]; // ms thresholds for levels 1,2,3
-export const DRIFT_BOOST_MULTIPLIERS = [1.3, 1.6, 2.0]; // speed mult per level
-export const DRIFT_BOOST_DURATIONS = [500, 1000, 1500];  // ms per level
+export const DRIFT_BOOST_MULTIPLIERS = [1.4, 1.7, 2.2];  // was [1.3, 1.6, 2.0]
+export const DRIFT_BOOST_DURATIONS   = [1000, 1800, 2800]; // was [500, 1000, 1500]
 export const DRIFT_STEER_FACTOR = 0.6;      // steering responsiveness while drifting
 export const DRIFT_LATERAL_SPEED = 0.003;   // how fast car slides sideways in drift
 export const DRIFT_SCORE_PER_SECOND = 50;   // drift score bonus per second
 
 // Collision
 export const SPIN_OUT_DURATION = 1000;   // ms of spin-out on collision
-export const AI_COLLISION_RADIUS = 0.15; // lateral distance for car-car collision
 
 // -- Cars -----------------------------------------------------------
 export const CARS: CarDef[] = [
@@ -185,6 +184,11 @@ export const POSITION_SCORES = [100, 70, 40, 10]; // 1st, 2nd, 3rd, 4th
 
 // -- AI -------------------------------------------------------------
 export const AI_COUNT = 3;
-export const AI_RUBBER_BAND_SPEED = 0.15; // how much AI adjusts toward player
-export const AI_STEER_SMOOTHNESS = 0.05;  // how fast AI steers toward racing line
-export const AI_DRIFT_CHANCE = 0.3;       // chance AI drifts on curves
+// Tiered AI: index 0 = weak, 1 = medium, 2 = strong
+export const AI_BASE_SPEED_RATIOS   = [0.72, 0.85, 0.95]; // fraction of BASE_MAX_SPEED
+export const AI_RUBBER_BAND_CAPS    = [0.82, 0.95, 1.08]; // max speed via rubber band
+export const AI_DRIFT_CURVE_THRESH  = [999,  0.5,  0.3];  // curve value that triggers drift
+export const AI_DRIFT_CHANCES       = [0,    0.30, 0.70]; // probability per eligible frame
+export const AI_START_Z_OFFSETS     = [-8,   -5,   -3];   // starting z behind player
+export const AI_STEER_SMOOTHNESS    = 0.05;
+export const AI_COLLISION_RADIUS    = 0.15;

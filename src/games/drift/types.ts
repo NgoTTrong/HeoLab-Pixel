@@ -163,6 +163,8 @@ export interface GameState {
   ghostRecording: number[];
   /** player input state */
   steerDir: number;
+  /** last non-zero steer direction — used to set drift direction when steerDir is 0 */
+  lastSteerDir: number;
   accelPressed: boolean;
   brakePressed: boolean;
 }

@@ -627,6 +627,7 @@ export default function PacmanPage() {
   const [activeBanner, setActiveBanner] = useState<BannerEntry | null>(null);
   const [mazeFlashing, setMazeFlashing] = useState(false);
   const bannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mazeFlashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevMilestoneRef = useRef<string | null>(null);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -770,7 +771,8 @@ export default function PacmanPage() {
 
     if (state.milestonePopup === "LEGENDARY!") {
       setMazeFlashing(true);
-      setTimeout(() => setMazeFlashing(false), 350);
+      if (mazeFlashTimerRef.current) clearTimeout(mazeFlashTimerRef.current);
+      mazeFlashTimerRef.current = setTimeout(() => setMazeFlashing(false), 350);
     }
   }, [state.milestonePopup, state.milestonePopupTimer, state.modifiers.gameMode]);
 
@@ -948,6 +950,7 @@ export default function PacmanPage() {
       highScore={highScore}
       onNewGame={() => {
         prevMilestoneRef.current = null;
+        prevEvolutionTierRef.current = "basic";
         dispatch({ type: "START", modifiers });
       }}
       helpContent={HELP}
@@ -1274,7 +1277,11 @@ export default function PacmanPage() {
               </div>
             )}
 
-            <PixelButton color="orange" onClick={() => dispatch({ type: "START", modifiers })}>
+            <PixelButton color="orange" onClick={() => {
+              prevMilestoneRef.current = null;
+              prevEvolutionTierRef.current = "basic";
+              dispatch({ type: "START", modifiers });
+            }}>
               PLAY
             </PixelButton>
           </div>
@@ -1316,7 +1323,11 @@ export default function PacmanPage() {
             <p className="text-[0.6rem] text-neon-pink/70">
               SCORE: {state.score} · BEST: {highScore}
             </p>
-            <PixelButton color="pink" onClick={() => dispatch({ type: "START", modifiers })}>
+            <PixelButton color="pink" onClick={() => {
+              prevMilestoneRef.current = null;
+              prevEvolutionTierRef.current = "basic";
+              dispatch({ type: "START", modifiers });
+            }}>
               TRY AGAIN
             </PixelButton>
           </div>

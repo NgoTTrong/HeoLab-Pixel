@@ -1,10 +1,43 @@
 // src/games/drift/sprites.ts
 import type { CarDef } from "./types";
 
+// Per-car body proportions: wr = width ratio, cr = cabin ratio
+const CAR_SHAPES: Record<string, { wr: number; cr: number }> = {
+  striker: { wr: 1.00, cr: 0.52 },
+  phantom: { wr: 1.10, cr: 0.45 },
+  bolt:    { wr: 0.90, cr: 0.58 },
+  tank:    { wr: 1.20, cr: 0.42 },
+  ghost:   { wr: 0.86, cr: 0.50 },
+};
+
+function hexToRgb(hex: string): [number, number, number] {
+  const h = hex.replace("#", "");
+  return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)];
+}
+
+function lighten(hex: string, amt: number): string {
+  const [r,g,b] = hexToRgb(hex);
+  return `rgb(${Math.min(255,r+amt)},${Math.min(255,g+amt)},${Math.min(255,b+amt)})`;
+}
+
+function darken(hex: string, amt: number): string {
+  const [r,g,b] = hexToRgb(hex);
+  return `rgb(${Math.max(0,r-amt)},${Math.max(0,g-amt)},${Math.max(0,b-amt)})`;
+}
+
+function getUnderglowColor(car: CarDef, isDrifting: boolean, chargeMs: number): string {
+  if (!isDrifting) return car.accentColor + "44";
+  if (chargeMs < 2000) return "rgba(255,255,255,0.95)";
+  if (chargeMs < 4000) return "rgba(255,230,0,0.95)";
+  // Level 3: flicker orange-red
+  return Math.floor(Date.now() / 80) % 2 === 0 ? "rgba(255,80,0,0.95)" : "rgba(255,140,0,0.95)";
+}
+
 /**
- * Draw a pixel-art car on canvas at given position.
- * angle: -3 to +3 (0 = straight, negative = left, positive = right)
- * scale: size multiplier (1 = normal, <1 = distant)
+ * Draw a cyber racing car viewed from behind at slight downward angle.
+ * x,y = screen position (y = road contact / bottom of car).
+ * angle: -3..+3 for skew (0 = straight).
+ * driftChargeMs: used for underglow color (default 0).
  */
 export function drawCar(
   ctx: CanvasRenderingContext2D,
@@ -14,108 +47,143 @@ export function drawCar(
   angle: number,
   car: CarDef,
   isDrifting: boolean,
+  driftChargeMs = 0,
 ): void {
-  const s = Math.max(scale * 40, 4); // base car size in pixels
-  const w = s * 1.6;
-  const h = s;
+  const BASE = Math.max(scale * 56, 5);
+  const shapes = CAR_SHAPES[car.slug] ?? CAR_SHAPES.striker;
+  const bw = BASE * 1.8 * shapes.wr;
+  const bh = BASE * 0.95;
+  const cabW = bw * shapes.cr;
 
   ctx.save();
   ctx.translate(x, y);
+  ctx.transform(1, 0, angle * 0.09, 1, 0, 0);
 
-  // Skew based on angle for drift visual
-  const skew = angle * 0.08;
-  ctx.transform(1, 0, skew, 1, 0, 0);
+  // 1. Neon underglow strip
+  const glowCol = getUnderglowColor(car, isDrifting, driftChargeMs);
+  ctx.save();
+  ctx.shadowColor = glowCol;
+  ctx.shadowBlur = BASE * 1.1;
+  ctx.fillStyle = glowCol;
+  ctx.fillRect(-bw * 0.42, -BASE * 0.04, bw * 0.84, BASE * 0.055);
+  ctx.restore();
 
-  // Car body
+  // 2. Rear wheels
+  const ww = BASE * 0.20;
+  const wh = BASE * 0.28;
+  const wheelY = -bh * 0.78;
+  const wo = angle * BASE * 0.035; // steer offset
+  ctx.fillStyle = "#111111";
+  ctx.fillRect(-bw * 0.50 - ww * 0.55 + wo, wheelY, ww, wh);
+  ctx.fillRect( bw * 0.50 - ww * 0.45 + wo, wheelY, ww, wh);
+  ctx.fillStyle = "#2a2a2a";
+  ctx.fillRect(-bw * 0.50 - ww * 0.55 + wo + 1, wheelY + 2, ww * 0.45, wh * 0.38);
+  ctx.fillRect( bw * 0.50 - ww * 0.45 + wo + 1, wheelY + 2, ww * 0.45, wh * 0.38);
+
+  // 3. Main body trapezoid (wider at bottom)
   ctx.fillStyle = car.bodyColor;
-  roundRect(ctx, -w / 2, -h, w, h * 0.75, s * 0.1);
+  ctx.beginPath();
+  ctx.moveTo(-bw * 0.50,  0);
+  ctx.lineTo( bw * 0.50,  0);
+  ctx.lineTo( bw * 0.44, -bh);
+  ctx.lineTo(-bw * 0.44, -bh);
+  ctx.closePath();
+  ctx.fill();
 
-  // Windshield
-  ctx.fillStyle = "#00000066";
-  const wsW = w * 0.5;
-  const wsH = h * 0.2;
-  ctx.fillRect(-wsW / 2, -h * 0.8, wsW, wsH);
+  // 4. Top edge highlight
+  ctx.fillStyle = lighten(car.bodyColor, 45);
+  ctx.fillRect(-bw * 0.42, -bh, bw * 0.84, BASE * 0.075);
 
-  // Accent stripe
+  // 5. Accent racing stripe
   ctx.fillStyle = car.accentColor;
-  ctx.fillRect(-w * 0.35, -h * 0.5, w * 0.7, h * 0.08);
+  ctx.fillRect(-bw * 0.38, -bh * 0.58, bw * 0.76, BASE * 0.10);
+  // Thin highlight above stripe
+  ctx.fillStyle = lighten(car.accentColor, 60);
+  ctx.fillRect(-bw * 0.38, -bh * 0.58, bw * 0.76, BASE * 0.02);
 
-  // Wheels
-  ctx.fillStyle = "#1a1a1a";
-  const wheelW = w * 0.15;
-  const wheelH = h * 0.15;
-  const wheelOffset = angle * s * 0.05;
-  // Front left
-  ctx.fillRect(-w / 2 - wheelW * 0.3 + wheelOffset, -h * 0.85, wheelW, wheelH);
-  // Front right
-  ctx.fillRect(w / 2 - wheelW * 0.7 + wheelOffset, -h * 0.85, wheelW, wheelH);
-  // Rear left
-  ctx.fillRect(-w / 2 - wheelW * 0.3, -h * 0.15, wheelW, wheelH);
-  // Rear right
-  ctx.fillRect(w / 2 - wheelW * 0.7, -h * 0.15, wheelW, wheelH);
+  // 6. Taillights
+  ctx.save();
+  ctx.shadowColor = "#ff1a1a";
+  ctx.shadowBlur = BASE * 0.6;
+  ctx.fillStyle = "#ff3333";
+  ctx.fillRect(-bw * 0.44, -bh * 0.84, BASE * 0.17, BASE * 0.12);
+  ctx.fillRect( bw * 0.27, -bh * 0.84, BASE * 0.17, BASE * 0.12);
+  ctx.fillStyle = "#ffaaaa";
+  ctx.fillRect(-bw * 0.44 + 2, -bh * 0.84 + 2, BASE * 0.06, BASE * 0.04);
+  ctx.fillRect( bw * 0.27 + 2, -bh * 0.84 + 2, BASE * 0.06, BASE * 0.04);
+  ctx.restore();
 
-  // Drift sparks
-  if (isDrifting && scale > 0.3) {
-    drawSparks(ctx, w, h, angle);
+  // 7. Cabin
+  ctx.fillStyle = darken(car.bodyColor, 28);
+  ctx.beginPath();
+  ctx.moveTo(-cabW * 0.50, -bh);
+  ctx.lineTo( cabW * 0.50, -bh);
+  ctx.lineTo( cabW * 0.42, -bh * 1.42);
+  ctx.lineTo(-cabW * 0.42, -bh * 1.42);
+  ctx.closePath();
+  ctx.fill();
+
+  // 8. Rear window (dark glass)
+  ctx.fillStyle = "rgba(0, 20, 40, 0.65)";
+  ctx.beginPath();
+  ctx.moveTo(-cabW * 0.37, -bh * 1.02);
+  ctx.lineTo( cabW * 0.37, -bh * 1.02);
+  ctx.lineTo( cabW * 0.30, -bh * 1.38);
+  ctx.lineTo(-cabW * 0.30, -bh * 1.38);
+  ctx.closePath();
+  ctx.fill();
+  // Glass reflection
+  ctx.fillStyle = "rgba(100,180,255,0.12)";
+  ctx.beginPath();
+  ctx.moveTo(-cabW * 0.37, -bh * 1.02);
+  ctx.lineTo(-cabW * 0.05, -bh * 1.02);
+  ctx.lineTo(-cabW * 0.05, -bh * 1.38);
+  ctx.lineTo(-cabW * 0.30, -bh * 1.38);
+  ctx.closePath();
+  ctx.fill();
+
+  // 9. Spoiler bar + supports
+  ctx.fillStyle = car.accentColor;
+  ctx.fillRect(-bw * 0.46, -bh * 1.50, bw * 0.92, BASE * 0.058);
+  ctx.fillStyle = darken(car.accentColor, 20);
+  ctx.fillRect(-bw * 0.35, -bh * 1.50, BASE * 0.07, BASE * 0.15);
+  ctx.fillRect( bw * 0.28, -bh * 1.50, BASE * 0.07, BASE * 0.15);
+
+  // 10. Drift sparks at high charge
+  if (isDrifting && driftChargeMs > 800 && scale > 0.25) {
+    drawSparks(ctx, bw, bh, angle, driftChargeMs);
   }
 
   ctx.restore();
 }
 
-function roundRect(
-  ctx: CanvasRenderingContext2D,
-  x: number, y: number, w: number, h: number, r: number,
-): void {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
-  ctx.fill();
-}
-
 function drawSparks(
   ctx: CanvasRenderingContext2D,
-  w: number, h: number, angle: number,
+  bw: number, bh: number, angle: number, chargeMs: number,
 ): void {
-  const sparkCount = 3 + Math.floor(Math.random() * 3);
-  for (let i = 0; i < sparkCount; i++) {
-    const sx = (angle > 0 ? -w / 2 : w / 2) + (Math.random() - 0.5) * w * 0.3;
-    const sy = -h * 0.1 + Math.random() * h * 0.2;
-    const size = 1 + Math.random() * 2;
-    ctx.fillStyle = `hsl(${30 + Math.random() * 30}, 100%, ${70 + Math.random() * 30}%)`;
+  const count = chargeMs > 4000 ? 6 : chargeMs > 2000 ? 4 : 2;
+  const side = angle >= 0 ? -bw * 0.5 : bw * 0.5;
+  for (let i = 0; i < count; i++) {
+    const sx = side + (Math.random() - 0.5) * bw * 0.25;
+    const sy = -bh * (0.1 + Math.random() * 0.3);
+    const size = 1 + Math.random() * 2.5;
+    const hue = chargeMs > 4000 ? `hsl(${15 + Math.random()*20},100%,${60+Math.random()*30}%)`
+              : chargeMs > 2000 ? `hsl(${45 + Math.random()*15},100%,${65+Math.random()*25}%)`
+              : `hsl(0,0%,${80+Math.random()*20}%)`;
+    ctx.fillStyle = hue;
     ctx.fillRect(sx, sy, size, size);
   }
 }
 
 /**
- * Draw drift smoke particles behind a car.
+ * Smoke drawing is now handled by the particle system in DriftCanvas.tsx.
+ * This stub is kept for API compatibility.
  */
 export function drawSmoke(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  scale: number,
-  intensity: number, // 0-1
+  _ctx: CanvasRenderingContext2D,
+  _x: number, _y: number, _scale: number, _intensity: number,
 ): void {
-  if (scale < 0.2 || intensity <= 0) return;
-  const count = Math.floor(intensity * 5);
-  for (let i = 0; i < count; i++) {
-    const px = x + (Math.random() - 0.5) * 20 * scale;
-    const py = y + Math.random() * 10 * scale;
-    const size = (3 + Math.random() * 5) * scale;
-    const alpha = 0.2 + Math.random() * 0.3;
-    ctx.fillStyle = `rgba(200,200,200,${alpha})`;
-    ctx.beginPath();
-    ctx.arc(px, py, size, 0, Math.PI * 2);
-    ctx.fill();
-  }
+  // Replaced by smokeParticlesRef in DriftCanvas
 }
 
 /**
@@ -123,27 +191,22 @@ export function drawSmoke(
  */
 export function drawPowerUpBox(
   ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  scale: number,
-  color: string,
-  emoji: string,
+  x: number, y: number, scale: number, color: string, emoji: string,
 ): void {
   if (scale < 0.05) return;
   const size = Math.max(20 * scale, 4);
 
-  // Glowing box
+  ctx.save();
   ctx.shadowColor = color;
-  ctx.shadowBlur = size * 0.5;
-  ctx.fillStyle = color + "44";
+  ctx.shadowBlur = size * 0.6;
+  ctx.fillStyle = color + "33";
   ctx.fillRect(x - size / 2, y - size, size, size);
   ctx.strokeStyle = color;
   ctx.lineWidth = Math.max(1, scale * 2);
   ctx.strokeRect(x - size / 2, y - size, size, size);
-  ctx.shadowBlur = 0;
+  ctx.restore();
 
-  // Emoji (only if big enough)
-  if (scale > 0.2) {
+  if (scale > 0.18) {
     ctx.font = `${Math.floor(size * 0.6)}px serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";

@@ -1,8 +1,10 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import PixelButton from "./PixelButton";
+import HelpModal from "./HelpModal";
+import type { GameHelp } from "@/lib/gameHelp";
 
 type GameColor = "green" | "pink" | "yellow" | "blue" | "orange";
 
@@ -16,6 +18,8 @@ interface GameLayoutProps {
   children: React.ReactNode;
   controls?: React.ReactNode;
   actions?: React.ReactNode;
+  helpContent?: GameHelp;
+  gameKey?: string;
 }
 
 function formatTime(seconds: number): string {
@@ -34,7 +38,21 @@ export default function GameLayout({
   children,
   controls,
   actions,
+  helpContent,
+  gameKey,
 }: GameLayoutProps) {
+  const [helpOpen, setHelpOpen] = useState(false);
+
+  useEffect(() => {
+    if (!helpContent || !gameKey) return;
+    if (typeof window === "undefined") return;
+    const key = `gamestation-${gameKey}-help-seen`;
+    if (!localStorage.getItem(key)) {
+      setHelpOpen(true);
+      localStorage.setItem(key, "1");
+    }
+  }, []);
+
   return (
     <div className="flex flex-col min-h-screen p-4 gap-4">
       {/* Top bar */}
@@ -48,11 +66,21 @@ export default function GameLayout({
         <h1 className={`text-[0.6rem] sm:text-xs md:text-sm neon-text neon-text-${color} text-center`}>
           {title}
         </h1>
-        {timer !== undefined ? (
-          <span className="text-[0.5rem] sm:text-[0.6rem] text-gray-400">{formatTime(timer)}</span>
-        ) : (
-          <span />
-        )}
+        <div className="flex items-center gap-2">
+          {timer !== undefined && (
+            <span className="text-[0.5rem] sm:text-[0.6rem] text-gray-400">{formatTime(timer)}</span>
+          )}
+          {helpContent && (
+            <button
+              onClick={() => setHelpOpen(true)}
+              className={`text-[0.5rem] sm:text-[0.6rem] neon-text-${color} hover:opacity-80 transition-opacity border border-current px-1.5 py-0.5`}
+              aria-label="How to play"
+            >
+              ?
+            </button>
+          )}
+          {!helpContent && timer === undefined && <span />}
+        </div>
       </div>
 
       {/* Score bar */}
@@ -76,6 +104,15 @@ export default function GameLayout({
         )}
         {controls}
       </div>
+
+      {/* Help Modal */}
+      {helpOpen && helpContent && (
+        <HelpModal
+          help={helpContent}
+          color={color}
+          onClose={() => setHelpOpen(false)}
+        />
+      )}
     </div>
   );
 }

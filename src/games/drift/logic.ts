@@ -31,7 +31,9 @@ import {
   SPIN_OUT_DURATION,
   AI_COLLISION_RADIUS,
   AI_COUNT,
-  AI_RUBBER_BAND_SPEED,
+  AI_BASE_SPEED_RATIOS,
+  AI_RUBBER_BAND_CAPS,
+  AI_START_Z_OFFSETS,
   AI_STEER_SMOOTHNESS,
   POWERUP_SPAWN_INTERVAL,
   POSITION_SCORES,
@@ -69,25 +71,15 @@ function createPlayer(): PlayerState {
   };
 }
 
-function createAIDrivers(
-  segments: Segment[],
-  playerCarIndex: number,
-): AIDriver[] {
-  const drivers: AIDriver[] = [];
-  // Stagger AI behind the player, assign different cars
-  const availableCars = CARS.map((_, i) => i).filter(
-    (i) => i !== playerCarIndex,
-  );
-  for (let i = 0; i < AI_COUNT; i++) {
-    drivers.push({
-      x: (i - 1) * 0.4, // spread laterally: -0.4, 0, 0.4
-      speed: BASE_MAX_SPEED * 0.5,
-      z: -(i + 1) * 5, // stagger behind: -5, -10, -15
-      carIndex: availableCars[i % availableCars.length],
-      targetSpeed: BASE_MAX_SPEED * 0.5,
-    });
-  }
-  return drivers;
+function createAIDrivers(segments: Segment[], playerCarIndex: number): AIDriver[] {
+  const availableCars = CARS.map((_, i) => i).filter((i) => i !== playerCarIndex);
+  return Array.from({ length: AI_COUNT }, (_, tier) => ({
+    x: (tier - 1) * 0.4,
+    speed: BASE_MAX_SPEED * AI_BASE_SPEED_RATIOS[tier],
+    z: AI_START_Z_OFFSETS[tier],
+    carIndex: availableCars[tier % availableCars.length],
+    targetSpeed: BASE_MAX_SPEED * AI_BASE_SPEED_RATIOS[tier],
+  }));
 }
 
 function spawnPowerUps(segments: Segment[]): PowerUpInstance[] {
@@ -156,6 +148,7 @@ export function initialState(
     steerDir: 0,
     accelPressed: false,
     brakePressed: false,
+    lastSteerDir: 0,
   };
 }
 
@@ -277,23 +270,29 @@ function tickBoost(state: GameState, dt: number): GameState {
 
 function tickAI(state: GameState, dt: number): GameState {
   if (state.ai.length === 0) return state;
-
   const segments = state.segments;
   const player = state.player;
-  const baseAISpeed = BASE_MAX_SPEED * 0.85;
 
-  const ai = state.ai.map((driver) => {
+  const ai = state.ai.map((driver, tier) => {
     const d = { ...driver };
+    const baseSpeed = BASE_MAX_SPEED * AI_BASE_SPEED_RATIOS[tier];
+    const capSpeed  = BASE_MAX_SPEED * AI_RUBBER_BAND_CAPS[tier];
 
-    // Rubber-banding
-    const distToPlayer = player.z - d.z;
-    d.targetSpeed = baseAISpeed + distToPlayer * AI_RUBBER_BAND_SPEED;
-    d.speed += (d.targetSpeed - d.speed) * 0.05;
+    // Rubber band: close the gap to player
+    const gap = player.z - d.z;
+    if (gap > 20) {
+      d.targetSpeed = Math.min(capSpeed, baseSpeed + gap * 0.3);
+    } else if (gap < 5) {
+      d.targetSpeed = Math.max(baseSpeed * 0.8, d.targetSpeed - 5);
+    } else {
+      d.targetSpeed = baseSpeed;
+    }
+    d.speed += (d.targetSpeed - d.speed) * 0.04;
 
-    // Follow racing line
-    const segIndex = Math.floor(d.z) % segments.length;
-    const aiSeg = segments[segIndex >= 0 ? segIndex : 0];
-    const targetX = -aiSeg.curve * 0.5;
+    // Steer toward racing line
+    const segIdx = ((Math.floor(d.z) % segments.length) + segments.length) % segments.length;
+    const seg = segments[segIdx];
+    const targetX = -seg.curve * 0.5;
     d.x += (targetX - d.x) * AI_STEER_SMOOTHNESS;
     d.x = Math.max(-0.9, Math.min(0.9, d.x));
 
@@ -496,7 +495,11 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case "STEER":
-      return { ...state, steerDir: action.direction };
+      return {
+        ...state,
+        steerDir: action.direction,
+        lastSteerDir: action.direction !== 0 ? action.direction : state.lastSteerDir,
+      };
 
     case "ACCELERATE":
       return { ...state, accelPressed: action.pressed };
@@ -505,19 +508,18 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       return { ...state, brakePressed: action.pressed };
 
     case "DRIFT_START": {
-      if (
-        state.player.speed <= 0 ||
-        state.steerDir === 0
-      )
-        return state;
+      const car = CARS[state.carIndex];
+      const maxSpeed = BASE_MAX_SPEED + (car.speed - 3) * SPEED_PER_RATING;
+      if (state.player.speed < maxSpeed * 0.15) return state; // too slow to drift
 
+      const dir = state.steerDir || state.lastSteerDir || 1;
       const player = {
         ...state.player,
         drift: {
           active: true,
-          direction: state.steerDir,
-          chargeMs: 0,
-          level: 0,
+          direction: dir,
+          chargeMs: state.player.drift.active ? state.player.drift.chargeMs : 0,
+          level: state.player.drift.active ? state.player.drift.level : 0,
         },
       };
       return { ...state, player };
@@ -556,11 +558,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
 
       switch (pu) {
         case "nitro":
-          player.boost = {
-            active: true,
-            remainingMs: 500,
-            multiplier: 1.5,
-          };
+          player.boost = { active: true, remainingMs: 2500, multiplier: 1.8 };
           break;
         case "shield":
           player.shieldMs = 5000;

@@ -605,6 +605,17 @@ export default function PacmanPage() {
   const [cellSize, setCellSize] = useState(CELL_SIZE);
   const [showSettings, setShowSettings] = useState(false);
 
+  interface PopupEntry {
+    id: number;
+    text: string;
+    color: string;
+    x: number;
+    y: number;
+  }
+  const [popups, setPopups] = useState<PopupEntry[]>([]);
+  const popupIdRef = useRef(0);
+  const prevFruitActiveRef = useRef(false);
+
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const audioRef = useRef<PacmanAudio | null>(null);
@@ -615,6 +626,17 @@ export default function PacmanPage() {
   const lastProximityRef = useRef(0);
   const prevComboRef = useRef(0);
   const ghostTrailRef = useRef<Record<string, Position[]>>({});
+
+  const spawnPopup = useCallback((text: string, color: string) => {
+    const id = ++popupIdRef.current;
+    const offsetX = (Math.random() - 0.5) * 20;
+    const x = state.pacman.x * cellSize + cellSize / 2 + offsetX;
+    const y = state.pacman.y * cellSize;
+    setPopups(prev => [...prev, { id, text, color, x, y }]);
+    setTimeout(() => {
+      setPopups(prev => prev.filter(p => p.id !== id));
+    }, 800);
+  }, [state.pacman, cellSize]);
 
   // Load high score on mount
   useEffect(() => {
@@ -674,14 +696,28 @@ export default function PacmanPage() {
     prevFrightenedRef.current = state.frightenedTimeLeft;
   }, [state.frightenedTimeLeft]);
 
-  // Audio: eat ghost (ghost combo increases)
+  // Audio + popup: eat ghost
   useEffect(() => {
     const eatenCount = state.ghosts.filter((g) => g.eatenReturning).length;
     if (eatenCount > prevGhostCountRef.current) {
       audioRef.current?.playEatGhost();
+      const comboIdx = Math.min(state.ghostCombo - 1, 3);
+      const values = [200, 400, 800, 1600];
+      const colors = ["#ffffff", "#ffe600", "#f97316", "#ff2d55"];
+      spawnPopup(`+${values[Math.max(0, comboIdx)]}`, colors[Math.max(0, comboIdx)]);
     }
     prevGhostCountRef.current = eatenCount;
-  }, [state.ghosts]);
+  }, [state.ghosts, state.ghostCombo, spawnPopup]);
+
+  // Popup: fruit eaten (fruitActive goes from true → false while playing)
+  useEffect(() => {
+    if (prevFruitActiveRef.current && !state.fruitActive && state.status === "playing") {
+      const fruitIndex = Math.min(state.level - 1, 4);
+      const values = [100, 300, 500, 700, 1000];
+      spawnPopup(`+${values[fruitIndex]}`, "#ffe600");
+    }
+    prevFruitActiveRef.current = state.fruitActive;
+  }, [state.fruitActive, state.status, state.level, spawnPopup]);
 
   // Audio: death or level complete
   useEffect(() => {
@@ -763,8 +799,17 @@ export default function PacmanPage() {
       audioRef.current?.playComboBreak();
     }
 
+    // Popup: dot combo milestone (only when combo >= 10 and increasing)
+    if (
+      state.combo >= 10 &&
+      state.combo > prevComboRef.current &&
+      state.modifiers.gameMode === "survival"
+    ) {
+      spawnPopup(`+10 x${state.combo}`, getComboColor(state.combo));
+    }
+
     prevComboRef.current = state.combo;
-  }, [state.combo, state.milestonePopup, state.milestonePopupTimer, state.modifiers.gameMode]);
+  }, [state.combo, state.milestonePopup, state.milestonePopupTimer, state.modifiers.gameMode, spawnPopup]);
 
   // Update high score on death
   useEffect(() => {
@@ -1009,6 +1054,29 @@ export default function PacmanPage() {
         {state.fruitActive && (
           <FruitSprite cellSize={cellSize} level={state.level} />
         )}
+
+        {/* Floating score popups */}
+        {popups.map(popup => (
+          <div
+            key={popup.id}
+            className="pointer-events-none select-none"
+            style={{
+              position: "absolute",
+              left: popup.x,
+              top: popup.y,
+              transform: "translateX(-50%)",
+              color: popup.color,
+              fontSize: cellSize * 0.7,
+              fontFamily: "var(--font-pixel), monospace",
+              textShadow: `0 0 6px ${popup.color}`,
+              zIndex: 25,
+              animation: "popupFloat 0.8s ease-out forwards",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {popup.text}
+          </div>
+        ))}
 
         {/* Milestone popup */}
         {state.modifiers.gameMode === "survival" && state.milestonePopup && (

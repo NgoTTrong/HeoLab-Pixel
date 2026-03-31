@@ -160,18 +160,26 @@ export default function DriftCanvas({ state, dispatch, audio }: DriftCanvasProps
     const canvas = canvasRef.current;
     if (!container || !canvas) return;
 
-    const observer = new ResizeObserver(() => {
-      const cssW = Math.min(container.clientWidth, 800);
-      const cssH = cssW * 9 / 16;
-      canvas.style.width = `${cssW}px`;
-      canvas.style.height = `${cssH}px`;
+    const c = canvas; // capture for closure
+    const ct = container;
+    function resize() {
+      const cssW = Math.min(ct.clientWidth, 800);
+      const cssH = Math.round(cssW * 9 / 16);
       const dpr = window.devicePixelRatio || 1;
-      canvas.width = Math.round(cssW * dpr);
-      canvas.height = Math.round(cssH * dpr);
-    });
+      const newW = Math.round(cssW * dpr);
+      const newH = Math.round(cssH * dpr);
+      if (c.width !== newW || c.height !== newH) {
+        c.style.width = `${cssW}px`;
+        c.style.height = `${cssH}px`;
+        c.width = newW;
+        c.height = newH;
+      }
+    }
 
-    observer.observe(container);
-    return () => observer.disconnect();
+    // Size once on mount, then listen for window resize only
+    resize();
+    window.addEventListener("resize", resize);
+    return () => window.removeEventListener("resize", resize);
   }, []);
 
   // -----------------------------------------------------------------------

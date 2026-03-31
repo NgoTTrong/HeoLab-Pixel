@@ -1,9 +1,10 @@
 // src/games/drift/road.ts
 import type { Segment, TrackPalette } from "./types";
-import { SEGMENT_LENGTH, ROAD_WIDTH, VISIBLE_SEGMENTS, CAMERA_HEIGHT, CAMERA_DEPTH } from "./config";
+import { SEGMENT_LENGTH, VISIBLE_SEGMENTS } from "./config";
 
 /**
  * Project world segments to screen coordinates based on camera position.
+ * Uses normalized segment-unit distances for correct pseudo-3D perspective.
  * Mutates segment.screen in-place for performance.
  */
 export function projectSegments(
@@ -13,27 +14,40 @@ export function projectSegments(
   canvasW: number,
   canvasH: number,
 ): void {
-  let curveAccum = 0;
+  const segIdx = Math.floor(cameraZ / SEGMENT_LENGTH);
+  const segFrac = (cameraZ % SEGMENT_LENGTH) / SEGMENT_LENGTH;
+  const halfW = canvasW / 2;
+  const horizonY = canvasH * 0.4;
+  const roadDepthY = canvasH * 0.6;
+
+  let x = 0;    // accumulated horizontal curve offset (normalised)
+  let dx = 0;   // curve velocity
   let hillAccum = 0;
 
   for (let i = 0; i < VISIBLE_SEGMENTS; i++) {
-    const idx = (Math.floor(cameraZ / SEGMENT_LENGTH) + i) % segments.length;
+    const rawIdx = segIdx + i;
+    const idx = ((rawIdx % segments.length) + segments.length) % segments.length;
     const seg = segments[idx];
-    const worldZ = (i + 1) * SEGMENT_LENGTH - (cameraZ % SEGMENT_LENGTH);
 
-    if (worldZ <= 0) {
-      seg.screen = { x: 0, y: 0, w: 0, scale: 0 };
+    // Distance in segment units (1 = nearest visible segment)
+    const dist = i + 1 - segFrac;
+
+    if (dist <= 0.01) {
+      seg.screen = { x: 0, y: canvasH, w: 0, scale: 0 };
       continue;
     }
 
-    const scale = CAMERA_DEPTH / worldZ;
-    const projX = canvasW / 2 + (scale * (-cameraX * ROAD_WIDTH + curveAccum) * canvasW / 2);
-    const projY = canvasH / 2 - (scale * (CAMERA_HEIGHT + hillAccum) * canvasH / 2);
-    const projW = scale * ROAD_WIDTH * canvasW / 2;
+    const scale = 1 / dist;
+
+    const projX = halfW + (x - cameraX * scale * 2) * halfW;
+    const projY = Math.min(canvasH, horizonY + scale * roadDepthY - hillAccum * scale * canvasH * 0.3);
+    const projW = scale * halfW * 0.4;
 
     seg.screen = { x: projX, y: projY, w: projW, scale };
-    curveAccum += seg.curve * SEGMENT_LENGTH;
-    hillAccum += seg.hill * SEGMENT_LENGTH;
+
+    x += dx;
+    dx += seg.curve * 0.003;
+    hillAccum += seg.hill * 0.02;
   }
 }
 
@@ -64,42 +78,48 @@ export function drawRoad(
   h: number,
   palette: TrackPalette,
 ): void {
+  const segIdx = Math.floor(cameraZ / SEGMENT_LENGTH);
+  const segCount = segments.length;
+
+  // Fill ground below horizon first
+  ctx.fillStyle = palette.grass1;
+  ctx.fillRect(0, h * 0.4, w, h * 0.6);
+
   // Draw from farthest to nearest
   for (let i = VISIBLE_SEGMENTS - 1; i > 0; i--) {
-    const idx = (Math.floor(cameraZ / SEGMENT_LENGTH) + i) % segments.length;
-    const prevIdx = (Math.floor(cameraZ / SEGMENT_LENGTH) + i - 1) % segments.length;
-    if (prevIdx < 0) continue;
+    const rawIdx = segIdx + i;
+    const idx = ((rawIdx % segCount) + segCount) % segCount;
+    const rawPrev = segIdx + i - 1;
+    const prevIdx = ((rawPrev % segCount) + segCount) % segCount;
 
     const seg = segments[idx];
-    const prevSeg = segments[prevIdx >= 0 ? prevIdx : prevIdx + segments.length];
+    const prevSeg = segments[prevIdx];
 
     if (!seg.screen || !prevSeg.screen || seg.screen.scale <= 0) continue;
 
-    const s1 = seg.screen;
-    const s2 = prevSeg.screen;
+    const s1 = seg.screen;      // farther segment (higher on screen)
+    const s2 = prevSeg.screen;  // nearer segment (lower on screen)
 
-    // Skip if behind camera or above screen
+    // Skip degenerate strips
     if (s1.y >= s2.y) continue;
 
-    const isEven = (Math.floor(cameraZ / SEGMENT_LENGTH) + i) % 2 === 0;
+    const isEven = (rawIdx) % 2 === 0;
 
-    // Ground/grass
+    // Ground/grass strip
     ctx.fillStyle = isEven ? palette.grass1 : palette.grass2;
-    ctx.fillRect(0, s1.y, w, s2.y - s1.y);
+    ctx.fillRect(0, Math.floor(s1.y), w, Math.ceil(s2.y - s1.y) + 1);
+
+    // Rumble strips (wider than road)
+    const rumbleW1 = s1.w * 1.2;
+    const rumbleW2 = s2.w * 1.2;
+    const rumbleColor = isEven ? palette.rumble1 : palette.rumble2;
+    drawTrapezoid(ctx, s1.x, s1.y, rumbleW1, s2.x, s2.y, rumbleW2, rumbleColor);
 
     // Road surface
     const roadColor = isEven ? palette.road1 : palette.road2;
     drawTrapezoid(ctx, s1.x, s1.y, s1.w, s2.x, s2.y, s2.w, roadColor);
 
-    // Rumble strips (edge markers)
-    const rumbleW1 = s1.w * 1.15;
-    const rumbleW2 = s2.w * 1.15;
-    const rumbleColor = isEven ? palette.rumble1 : palette.rumble2;
-    drawTrapezoid(ctx, s1.x, s1.y, rumbleW1, s2.x, s2.y, rumbleW2, rumbleColor);
-    // Re-draw road on top of rumble
-    drawTrapezoid(ctx, s1.x, s1.y, s1.w, s2.x, s2.y, s2.w, roadColor);
-
-    // Lane markings (center dashes)
+    // Lane markings (dashed center line)
     if (isEven) {
       const laneW1 = s1.w * 0.02;
       const laneW2 = s2.w * 0.02;

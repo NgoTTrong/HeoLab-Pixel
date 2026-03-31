@@ -727,8 +727,11 @@ export default function PacmanPage() {
 
   interface BannerEntry {
     text: string;
+    icon: string;
     color: string;
     duration: number;
+    yFraction: number;    // 0.15 to 0.65 — vertical position in maze
+    rotation: number;     // slight tilt in degrees
   }
   const [activeBanner, setActiveBanner] = useState<BannerEntry | null>(null);
   const [mazeFlashing, setMazeFlashing] = useState(false);
@@ -746,17 +749,25 @@ export default function PacmanPage() {
   const lastProximityRef = useRef(0);
   const prevComboRef = useRef(0);
   const ghostTrailRef = useRef<Record<string, Position[]>>({});
+  const pacmanRef = useRef({ x: state.pacman.x, y: state.pacman.y });
+  pacmanRef.current = { x: state.pacman.x, y: state.pacman.y };
 
-  const spawnPopup = useCallback((text: string, color: string) => {
+  const spawnPopup = useCallback((
+    text: string,
+    color: string,
+    customX?: number,
+    customY?: number,
+  ) => {
     const id = ++popupIdRef.current;
+    const pos = pacmanRef.current;
     const offsetX = (Math.random() - 0.5) * 20;
-    const x = state.pacman.x * cellSize + cellSize / 2 + offsetX;
-    const y = state.pacman.y * cellSize;
+    const x = customX ?? (pos.x * cellSize + cellSize / 2 + offsetX);
+    const y = customY ?? pos.y * cellSize;
     setPopups(prev => [...prev, { id, text, color, x, y }]);
     setTimeout(() => {
       setPopups(prev => prev.filter(p => p.id !== id));
     }, 800);
-  }, [state.pacman, cellSize]);
+  }, [cellSize]); // no longer depends on state.pacman
 
   // Load high score on mount
   useEffect(() => {
@@ -862,16 +873,20 @@ export default function PacmanPage() {
 
     prevMilestoneRef.current = state.milestonePopup;
 
-    const bannerMap: Record<string, BannerEntry> = {
-      "BLAZING!":     { text: "BLAZING!",     color: "#ffe600", duration: 1500 },
-      "UNSTOPPABLE!": { text: "UNSTOPPABLE!", color: "#f97316", duration: 1500 },
-      "LEGENDARY!":   { text: "LEGENDARY!",   color: "#ff2d55", duration: 2000 },
+    const bannerMap: Record<string, Omit<BannerEntry, "yFraction" | "rotation">> = {
+      "BLAZING!":     { text: "BLAZING!",     icon: "🔥", color: "#ffe600", duration: 1500 },
+      "UNSTOPPABLE!": { text: "UNSTOPPABLE!", icon: "⚡", color: "#f97316", duration: 1500 },
+      "LEGENDARY!":   { text: "LEGENDARY!",   icon: "👑", color: "#ff2d55", duration: 2000 },
     };
 
     const banner = bannerMap[state.milestonePopup];
     if (!banner) return;
 
-    setActiveBanner(banner);
+    setActiveBanner({
+      ...banner,
+      yFraction: 0.15 + Math.random() * 0.5,
+      rotation: (Math.random() - 0.5) * 8,
+    });
     if (bannerTimerRef.current) clearTimeout(bannerTimerRef.current);
     bannerTimerRef.current = setTimeout(() => setActiveBanner(null), banner.duration);
 
@@ -962,8 +977,23 @@ export default function PacmanPage() {
       audioRef.current?.playComboBreak();
     }
 
+    // Popup for every combo multiple of 10
+    if (
+      state.modifiers.gameMode === "survival" &&
+      state.combo > 0 &&
+      state.combo % 10 === 0 &&
+      state.combo > prevComboRef.current
+    ) {
+      // Random position within visible fog area (within visRadius around pac-man)
+      const angle = Math.random() * Math.PI * 2;
+      const spread = (0.4 + Math.random() * 0.4) * state.visRadius * cellSize;
+      const px = pacmanRef.current.x * cellSize + cellSize / 2 + Math.cos(angle) * spread;
+      const py = pacmanRef.current.y * cellSize + cellSize / 2 + Math.sin(angle) * spread;
+      spawnPopup(`x${state.combo}!`, getComboColor(state.combo), px, py);
+    }
+
     prevComboRef.current = state.combo;
-  }, [state.combo, state.milestonePopup, state.milestonePopupTimer, state.modifiers.gameMode]);
+  }, [state.combo, state.milestonePopup, state.milestonePopupTimer, state.modifiers.gameMode, state.visRadius, cellSize, spawnPopup]);
 
   // Update high score on death
   useEffect(() => {
@@ -1282,32 +1312,57 @@ export default function PacmanPage() {
           </div>
         )}
 
-      </div>
-
-      {/* Combo milestone sweep banner */}
-      {activeBanner && (
-        <div
-          className="pointer-events-none overflow-hidden"
-          style={{ width: boardWidth, height: cellSize * 2 }}
-        >
+        {/* Combo milestone sweep banner — absolute inside maze, no layout shift */}
+        {activeBanner && (
           <div
-            className="flex items-center justify-center h-full"
+            className="pointer-events-none"
             style={{
-              animation: `bannerSweep ${activeBanner.duration}ms ease-in-out forwards`,
-              color: activeBanner.color,
-              textShadow: `0 0 12px ${activeBanner.color}, 0 0 24px ${activeBanner.color}`,
-              fontFamily: "var(--font-pixel), monospace",
-              fontSize: cellSize * 0.9,
-              letterSpacing: "0.1em",
-              borderTop: `1px solid ${activeBanner.color}40`,
-              borderBottom: `1px solid ${activeBanner.color}40`,
-              backgroundColor: `${activeBanner.color}08`,
+              position: "absolute",
+              inset: 0,
+              overflow: "hidden",
+              zIndex: 22,
             }}
           >
-            {activeBanner.text}
+            {/* Rotation wrapper */}
+            <div
+              style={{
+                position: "absolute",
+                left: 0,
+                right: 0,
+                top: boardHeight * activeBanner.yFraction,
+                transform: `rotate(${activeBanner.rotation}deg)`,
+              }}
+            >
+              {/* Sweep animation wrapper */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "0.4em",
+                  padding: `${cellSize * 0.3}px 0`,
+                  animation: `bannerSweep ${activeBanner.duration}ms ease-in-out forwards`,
+                  color: activeBanner.color,
+                  textShadow: `0 0 12px ${activeBanner.color}, 0 0 24px ${activeBanner.color}`,
+                  fontFamily: "var(--font-pixel), monospace",
+                  fontSize: cellSize * 1.0,
+                  letterSpacing: "0.08em",
+                  borderTop: `1px solid ${activeBanner.color}50`,
+                  borderBottom: `1px solid ${activeBanner.color}50`,
+                  backgroundColor: `${activeBanner.color}12`,
+                  backdropFilter: "blur(1px)",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <span>{activeBanner.icon}</span>
+                <span>{activeBanner.text}</span>
+                <span>{activeBanner.icon}</span>
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+
+      </div>
 
       {/* Idle overlay */}
       {state.status === "idle" && (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useReducer, useEffect, useCallback, useRef, useState } from "react";
+import { useReducer, useEffect, useCallback, useRef, useState, memo } from "react";
 import GameLayout from "@/components/GameLayout";
 import PixelButton from "@/components/PixelButton";
 import MuteButton from "@/components/MuteButton";
@@ -18,7 +18,7 @@ import {
   PROXIMITY_MID,
   PROXIMITY_NEAR,
 } from "@/games/pacman/config";
-import { getCellOpacity, getClosestGhostDistance } from "@/games/pacman/fog";
+import { getClosestGhostDistance } from "@/games/pacman/fog";
 import type {
   Direction,
   GameModifiers,
@@ -578,6 +578,110 @@ function FruitSprite({
 }
 
 // ---------------------------------------------------------------------------
+// Memoized maze grid — never re-renders unless maze array reference changes
+// ---------------------------------------------------------------------------
+
+const StaticMazeGrid = memo(function StaticMazeGrid({
+  maze,
+  cellSize,
+}: {
+  maze: CellType[][];
+  cellSize: number;
+}) {
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: `repeat(${MAZE_COLS}, ${cellSize}px)`,
+        gridTemplateRows: `repeat(${MAZE_ROWS}, ${cellSize}px)`,
+      }}
+    >
+      {maze.flatMap((row, ry) =>
+        row.map((cell, cx) => (
+          <MazeCell key={`${ry},${cx}`} cell={cell} cellSize={cellSize} />
+        ))
+      )}
+    </div>
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Canvas-based fog of war overlay
+// ---------------------------------------------------------------------------
+
+const FogCanvas = memo(function FogCanvas({
+  pacman,
+  visRadius,
+  visited,
+  cellSize,
+  width,
+  height,
+}: {
+  pacman: { x: number; y: number };
+  visRadius: number;
+  visited: boolean[][];
+  cellSize: number;
+  width: number;
+  height: number;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    ctx.clearRect(0, 0, width, height);
+
+    const FOG_FADE = 2; // matches FOG_FADE_RANGE from config
+    const VISITED_ALPHA = 0.8; // 1 - visitedOpacity(0.2)
+
+    for (let ry = 0; ry < visited.length; ry++) {
+      const row = visited[ry];
+      if (!row) continue;
+      for (let cx = 0; cx < row.length; cx++) {
+        const dx = cx - pacman.x;
+        const dy = ry - pacman.y;
+        const d = Math.sqrt(dx * dx + dy * dy);
+
+        let fogAlpha: number;
+        if (d <= visRadius) {
+          fogAlpha = 0;
+        } else if (d <= visRadius + FOG_FADE) {
+          const t = (d - visRadius) / FOG_FADE;
+          fogAlpha = t * VISITED_ALPHA;
+        } else if (row[cx]) {
+          fogAlpha = VISITED_ALPHA;
+        } else {
+          fogAlpha = 1.0;
+        }
+
+        if (fogAlpha > 0.02) {
+          ctx.fillStyle = `rgba(0,0,0,${fogAlpha.toFixed(2)})`;
+          ctx.fillRect(cx * cellSize, ry * cellSize, cellSize, cellSize);
+        }
+      }
+    }
+  }, [pacman, visRadius, visited, cellSize, width, height]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      width={width}
+      height={height}
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        pointerEvents: "none",
+        zIndex: 3,
+      }}
+    />
+  );
+});
+
+// ---------------------------------------------------------------------------
 // Main page
 // ---------------------------------------------------------------------------
 
@@ -856,17 +960,8 @@ export default function PacmanPage() {
       audioRef.current?.playComboBreak();
     }
 
-    // Popup: dot combo milestone (only when combo >= 10 and increasing)
-    if (
-      state.combo >= 10 &&
-      state.combo > prevComboRef.current &&
-      state.modifiers.gameMode === "survival"
-    ) {
-      spawnPopup(`+10 x${state.combo}`, getComboColor(state.combo));
-    }
-
     prevComboRef.current = state.combo;
-  }, [state.combo, state.milestonePopup, state.milestonePopupTimer, state.modifiers.gameMode, spawnPopup]);
+  }, [state.combo, state.milestonePopup, state.milestonePopupTimer, state.modifiers.gameMode]);
 
   // Update high score on death
   useEffect(() => {
@@ -1036,27 +1131,20 @@ export default function PacmanPage() {
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        {/* Maze grid */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: `repeat(${MAZE_COLS}, ${cellSize}px)`,
-            gridTemplateRows: `repeat(${MAZE_ROWS}, ${cellSize}px)`,
-          }}
-        >
-          {state.maze.flatMap((row, ry) =>
-            row.map((cell, cx) => {
-              const opacity = state.modifiers.gameMode === "survival"
-                ? getCellOpacity(cx, ry, state.pacman, state.visRadius, state.visited, 0.2)
-                : 1;
-              return (
-                <div key={`${cx},${ry}`} style={{ opacity }}>
-                  <MazeCell cell={cell} cellSize={cellSize} />
-                </div>
-              );
-            }),
-          )}
-        </div>
+        {/* Maze grid — memoized, no fog computation */}
+        <StaticMazeGrid maze={state.maze} cellSize={cellSize} />
+
+        {/* Fog of war overlay (canvas, survival mode only) */}
+        {state.modifiers.gameMode === "survival" && (
+          <FogCanvas
+            pacman={state.pacman}
+            visRadius={state.visRadius}
+            visited={state.visited}
+            cellSize={cellSize}
+            width={boardWidth}
+            height={boardHeight}
+          />
+        )}
 
         {/* Pac-Man sprite */}
         {state.status !== "idle" && (
@@ -1073,8 +1161,10 @@ export default function PacmanPage() {
         {state.modifiers.gameMode === "survival" && state.evolutionTier === "evolved" &&
           state.status !== "idle" &&
           state.ghosts.map((ghost) => {
-            const ghostOpacity = getCellOpacity(ghost.pos.x, ghost.pos.y, state.pacman, state.visRadius, state.visited, 0);
-            if (ghostOpacity === 0) return null;
+            const dx = ghost.pos.x - state.pacman.x;
+            const dy = ghost.pos.y - state.pacman.y;
+            const d = Math.sqrt(dx * dx + dy * dy);
+            if (d > state.visRadius + 2) return null;
             return ghostTrailRef.current[ghost.name]?.map((trailPos, i) => (
               <div
                 key={`trail-${ghost.name}-${i}`}
@@ -1096,12 +1186,14 @@ export default function PacmanPage() {
         {/* Ghost sprites */}
         {state.status !== "idle" &&
           state.ghosts.map((ghost) => {
-            const ghostOpacity = state.modifiers.gameMode === "survival"
-              ? getCellOpacity(ghost.pos.x, ghost.pos.y, state.pacman, state.visRadius, state.visited, 0)
-              : 1;
-            if (ghostOpacity === 0) return null;
+            if (state.modifiers.gameMode === "survival") {
+              const dx = ghost.pos.x - state.pacman.x;
+              const dy = ghost.pos.y - state.pacman.y;
+              const d = Math.sqrt(dx * dx + dy * dy);
+              if (d > state.visRadius + 2) return null;
+            }
             return (
-              <div key={ghost.name} style={{ opacity: ghostOpacity }}>
+              <div key={ghost.name}>
                 <GhostSprite
                   ghost={ghost}
                   tick={state.tick}

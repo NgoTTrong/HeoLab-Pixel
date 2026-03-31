@@ -10,6 +10,25 @@ import { getHighScore, setHighScore } from "@/lib/scores";
 import { createTetrisAudio } from "@/games/tetris/audio";
 import type { TetrisAudio } from "@/games/tetris/audio";
 import MuteButton from "@/components/MuteButton";
+import type { GameHelp } from "@/lib/gameHelp";
+
+const HELP: GameHelp = {
+  objective: "Clear horizontal lines by filling them completely with falling pieces. The game ends when pieces stack to the top of the board.",
+  controls: [
+    { key: "Left / Right", action: "Move piece sideways" },
+    { key: "Up / Z", action: "Rotate piece" },
+    { key: "Down", action: "Soft drop — faster fall" },
+    { key: "Space", action: "Hard drop — instant place" },
+  ],
+  scoring: [
+    { icon: "💥", name: "TETRIS", desc: "Clear 4 lines at once for a massive score bonus — the most efficient way to score." },
+    { icon: "🔗", name: "COMBOS", desc: "Clearing lines on consecutive drops multiplies your score." },
+  ],
+  specials: [
+    { icon: "👻", name: "GHOST PIECE", desc: "A faint outline shows exactly where the piece will land, helping you plan placements." },
+    { icon: "⏩", name: "SPEED UP", desc: "Every 10 lines cleared increases the drop speed — how long can you last?" },
+  ],
+};
 
 const GAME_KEY = "tetris";
 const CELL_SIZE = 28; // px
@@ -162,7 +181,7 @@ export default function TetrisPage() {
   const eventDef = state.activeEvent ? RANDOM_EVENTS.find((e) => e.type === state.activeEvent) : null;
 
   return (
-    <GameLayout title="BLOCK STORM" color="pink" score={state.score} highScore={highScore} onNewGame={() => dispatch({ type: "START" })} actions={<MuteButton muted={muted} onToggle={() => setMuted(m => !m)} color="pink" />}>
+    <GameLayout title="BLOCK STORM" color="pink" score={state.score} highScore={highScore} onNewGame={() => dispatch({ type: "START" })} actions={<MuteButton muted={muted} onToggle={() => setMuted(m => !m)} color="pink" />} helpContent={HELP} gameKey="tetris">
       <div className="flex gap-4 items-start">
         {/* Hold */}
         <div className="flex flex-col gap-2 items-center">

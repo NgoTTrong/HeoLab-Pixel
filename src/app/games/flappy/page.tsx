@@ -12,6 +12,20 @@ import Link from "next/link";
 import { createFlappyAudio } from "@/games/flappy/audio";
 import type { FlappyAudio } from "@/games/flappy/audio";
 import MuteButton from "@/components/MuteButton";
+import type { GameHelp } from "@/lib/gameHelp";
+import HelpModal from "@/components/HelpModal";
+
+const HELP: GameHelp = {
+  objective: "Tap to flap and fly through gaps between pipes. Each pipe you pass scores 1 point. One touch of a pipe or the ground ends the run!",
+  controls: [
+    { key: "Space", action: "Flap" },
+    { key: "Click / Tap", action: "Flap on mouse or touch" },
+  ],
+  specials: [
+    { icon: "📏", name: "SHRINKING GAPS", desc: "Pipe gaps get narrower the longer you survive, making each pipe harder to thread than the last." },
+    { icon: "🏅", name: "HIGH SCORE", desc: "Your personal best is automatically saved and shown above the game." },
+  ],
+};
 
 const GAME_KEY = "flappy";
 
@@ -57,9 +71,19 @@ export default function FlappyPage() {
   const [muted, setMuted] = useState(() =>
     typeof window !== "undefined" && localStorage.getItem("flappy-sound-muted") === "1"
   );
+  const [helpOpen, setHelpOpen] = useState(false);
 
   useEffect(() => {
     setUiState((s) => ({ ...s, highScore: getHighScore(GAME_KEY) }));
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const key = "gamestation-flappy-help-seen";
+    if (!localStorage.getItem(key)) {
+      setHelpOpen(true);
+      localStorage.setItem(key, "1");
+    }
   }, []);
 
   // Lazy-init audio on first interaction
@@ -501,6 +525,14 @@ export default function FlappyPage() {
         <div className="flex items-center gap-2">
           <span className="text-[0.5rem] text-gray-400">BEST: {uiState.highScore}</span>
           <MuteButton muted={muted} onToggle={() => setMuted(m => !m)} color="yellow" />
+          <button
+            onClick={() => setHelpOpen(true)}
+            className="text-[0.5rem] text-neon-yellow hover:opacity-80 transition-opacity border border-neon-yellow/60 px-1.5 py-0.5"
+            style={{ fontFamily: "var(--font-press-start), monospace" }}
+            aria-label="How to play"
+          >
+            ?
+          </button>
         </div>
       </div>
 
@@ -542,6 +574,14 @@ export default function FlappyPage() {
       </div>
 
       <p className="text-[0.45rem] font-pixel text-gray-600">TAP / SPACE / ↑ TO FLAP</p>
+
+      {helpOpen && (
+        <HelpModal
+          help={HELP}
+          color="yellow"
+          onClose={() => setHelpOpen(false)}
+        />
+      )}
     </div>
   );
 }

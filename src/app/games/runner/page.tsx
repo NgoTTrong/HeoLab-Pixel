@@ -11,6 +11,22 @@ import { getHighScore, setHighScore } from "@/lib/scores";
 import { createRunnerAudio } from "@/games/runner/audio";
 import type { RunnerAudio } from "@/games/runner/audio";
 import MuteButton from "@/components/MuteButton";
+import type { GameHelp } from "@/lib/gameHelp";
+import HelpModal from "@/components/HelpModal";
+
+const HELP: GameHelp = {
+  objective: "Run as far as possible by jumping over obstacles. Your score increases with distance. Survive long enough and new worlds unlock!",
+  controls: [
+    { key: "Space", action: "Jump — hold for higher jump" },
+    { key: "Click / Tap", action: "Jump on mobile" },
+    { key: "Double tap", action: "Double jump mid-air" },
+  ],
+  specials: [
+    { icon: "🌍", name: "WORLDS", desc: "Different themed environments unlock as you reach score milestones — each with unique obstacles and visuals." },
+    { icon: "✈️", name: "FLYING OBSTACLES", desc: "Some obstacles fly at mid-height — time your jump carefully to avoid them." },
+    { icon: "⚡", name: "SPEED RAMP", desc: "The game gradually accelerates, demanding faster reactions the further you go." },
+  ],
+};
 
 const GAME_KEY = "runner";
 const W = 600;
@@ -98,6 +114,16 @@ export default function RunnerPage() {
   const [muted, setMuted] = useState(() =>
     typeof window !== "undefined" && localStorage.getItem("runner-sound-muted") === "1"
   );
+  const [helpOpen, setHelpOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const key = "gamestation-runner-help-seen";
+    if (!localStorage.getItem(key)) {
+      setHelpOpen(true);
+      localStorage.setItem(key, "1");
+    }
+  }, []);
 
   // Lazy-init audio on first interaction
   useEffect(() => {
@@ -508,6 +534,14 @@ export default function RunnerPage() {
         <div className="flex items-center gap-2">
           <span className="text-[0.5rem] text-gray-400">BEST: {highScore}</span>
           <MuteButton muted={muted} onToggle={() => setMuted(m => !m)} color="green" />
+          <button
+            onClick={() => setHelpOpen(true)}
+            className="text-[0.5rem] text-neon-orange hover:opacity-80 transition-opacity border border-neon-orange/60 px-1.5 py-0.5"
+            style={{ fontFamily: "var(--font-press-start), monospace" }}
+            aria-label="How to play"
+          >
+            ?
+          </button>
         </div>
       </div>
 
@@ -602,6 +636,14 @@ export default function RunnerPage() {
 
       {uiStatus === "playing" && (
         <p className="text-[0.45rem] font-pixel text-gray-600">SPACE / ↑ JUMP · ↓ SLIDE · DOUBLE JUMP AVAILABLE</p>
+      )}
+
+      {helpOpen && (
+        <HelpModal
+          help={HELP}
+          color="orange"
+          onClose={() => setHelpOpen(false)}
+        />
       )}
     </div>
   );

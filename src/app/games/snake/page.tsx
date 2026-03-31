@@ -9,6 +9,22 @@ import { getHighScore, setHighScore } from "@/lib/scores";
 import { createSnakeAudio } from "@/games/snake/audio";
 import type { SnakeAudio } from "@/games/snake/audio";
 import MuteButton from "@/components/MuteButton";
+import type { GameHelp } from "@/lib/gameHelp";
+
+const HELP: GameHelp = {
+  objective: "Eat food to grow your snake and score points. Avoid hitting walls or your own tail — one wrong move ends the game!",
+  controls: [
+    { key: "Arrow Keys", action: "Change direction" },
+    { key: "W A S D", action: "Change direction (alternate)" },
+    { key: "Swipe", action: "Change direction on mobile" },
+  ],
+  scoring: [
+    { icon: "🍎", name: "FOOD SCORE", desc: "Each food item scores points based on your current speed tier — faster snake means bigger rewards." },
+  ],
+  specials: [
+    { icon: "⚡", name: "SPEED RAMP", desc: "The snake accelerates as it grows longer, making tight spaces increasingly dangerous." },
+  ],
+};
 
 const GAME_KEY = "snake";
 
@@ -175,6 +191,8 @@ export default function SnakePage() {
       highScore={highScore}
       onNewGame={() => dispatch({ type: "START" })}
       actions={<MuteButton muted={muted} onToggle={() => setMuted(m => !m)} color="green" />}
+      helpContent={HELP}
+      gameKey="snake"
     >
       {/* Active power-up indicator */}
       {activePowerUpDef && (

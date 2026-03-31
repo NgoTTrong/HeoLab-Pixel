@@ -4,7 +4,7 @@ export const CELL_SIZE = 16;
 export const TICK_MS = 120;
 
 export const DEFAULT_MODIFIERS: GameModifiers = {
-  gameMode: "classic",
+  gameMode: "survival",
   ghostSpeed: "normal",
   powerDuration: 8,
   mazeStyle: "classic",

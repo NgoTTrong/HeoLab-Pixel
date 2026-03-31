@@ -140,6 +140,16 @@ function SettingsPanel({
         </h3>
 
         <SettingRow
+          label="GAME MODE"
+          options={[
+            { label: "SURVIVAL", value: "survival" as const },
+            { label: "CLASSIC", value: "classic" as const },
+          ]}
+          current={modifiers.gameMode}
+          onChange={(v) => update("gameMode", v)}
+        />
+
+        <SettingRow
           label="GHOST SPEED"
           options={[
             { label: "SLOW", value: "slow" as const },
@@ -913,6 +923,7 @@ export default function PacmanPage() {
           backgroundColor: "#000",
           border: "1px solid #1a1aff20",
           position: "relative",
+          touchAction: "none",
         }}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}

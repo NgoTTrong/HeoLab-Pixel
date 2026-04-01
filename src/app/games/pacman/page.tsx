@@ -1354,9 +1354,9 @@ export default function PacmanPage() {
                   whiteSpace: "nowrap",
                 }}
               >
-                <span style={{ display: "inline-flex", alignItems: "center", lineHeight: 1 }}>{activeBanner.icon}</span>
-                <span style={{ lineHeight: 1 }}>{activeBanner.text}</span>
-                <span style={{ display: "inline-flex", alignItems: "center", lineHeight: 1 }}>{activeBanner.icon}</span>
+                <span style={{ display: "inline-block", transform: "translateY(-12%)" }}>{activeBanner.icon}</span>
+                <span>{activeBanner.text}</span>
+                <span style={{ display: "inline-block", transform: "translateY(-12%)" }}>{activeBanner.icon}</span>
               </div>
             </div>
           </div>

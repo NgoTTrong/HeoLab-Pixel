@@ -49,7 +49,9 @@ export const LINE_SCORES = [0, 100, 300, 500, 800];
 export const COMBO_BONUSES = [0, 50, 100, 200, 400];
 
 // T-Spin scores
-export const TSPIN_SCORES: Record<string, number> = {
+export type TSpinKind = "mini" | "single" | "double" | "triple";
+
+export const TSPIN_SCORES: Record<TSpinKind, number> = {
   mini:   400,
   single: 800,
   double: 1200,

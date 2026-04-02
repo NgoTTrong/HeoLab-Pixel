@@ -109,8 +109,8 @@ function drawFromBag(state: TetrisState): { active: ActivePiece; bag: TetrominoT
 
 function applyEvent(board: Board, event: EventType): Board {
   const newBoard = board.map((row) => [...row]);
+
   if (event === "lightning") {
-    // Clear a random non-empty row
     const nonEmpty = newBoard.reduce<number[]>((acc, row, i) => {
       if (row.some((c) => c !== null)) acc.push(i);
       return acc;
@@ -120,7 +120,31 @@ function applyEvent(board: Board, event: EventType): Board {
       newBoard.splice(targetRow, 1);
       newBoard.unshift(Array(BOARD_COLS).fill(null));
     }
+  } else if (event === "bomb" || event === "curse") {
+    const rows = event === "bomb" ? GARBAGE_ROWS_BOMB : GARBAGE_ROWS_CURSE;
+    for (let i = 0; i < rows; i++) {
+      const gapCol = Math.floor(Math.random() * BOARD_COLS);
+      const garbageRow: (string | null)[] = Array.from(
+        { length: BOARD_COLS },
+        (_, c) => (c === gapCol ? null : "#444466")
+      );
+      newBoard.splice(0, 1);
+      newBoard.push(garbageRow);
+    }
+  } else if (event === "whirlwind") {
+    for (let r = 0; r < newBoard.length; r++) {
+      const shift = Math.floor(Math.random() * 5) - 2; // -2 to +2
+      if (shift === 0) continue;
+      const row = newBoard[r];
+      const shifted: (string | null)[] = Array(BOARD_COLS).fill(null);
+      for (let c = 0; c < BOARD_COLS; c++) {
+        const newC = ((c + shift) % BOARD_COLS + BOARD_COLS) % BOARD_COLS;
+        shifted[newC] = row[c];
+      }
+      newBoard[r] = shifted;
+    }
   }
+
   return newBoard;
 }
 
@@ -217,6 +241,7 @@ export function tetrisReducer(state: TetrisState, action: TetrisAction): TetrisS
       let linesUntilEvent = state.linesUntilEvent - cleared;
       let activeEvent = state.activeEvent;
       let eventEndsAt = state.eventEndsAt;
+      let overdriveActive = state.overdriveActive;
 
       if (linesUntilEvent <= 0 && cleared > 0) {
         linesUntilEvent = 5;
@@ -231,7 +256,17 @@ export function tetrisReducer(state: TetrisState, action: TetrisAction): TetrisS
           board = applyEvent(board, event.type);
           eventEndsAt = Date.now() + 2000;
         } else if (event.type === "bomb") {
-          eventEndsAt = Date.now() + 2000; // just banner
+          board = applyEvent(board, event.type);
+          eventEndsAt = Date.now() + 2000;
+        } else if (event.type === "whirlwind") {
+          board = applyEvent(board, event.type);
+          eventEndsAt = Date.now() + 2000;
+        } else if (event.type === "curse") {
+          board = applyEvent(board, event.type);
+          eventEndsAt = Date.now() + 2000;
+        } else if (event.type === "overdrive") {
+          eventEndsAt = Date.now() + OVERDRIVE_DURATION;
+          overdriveActive = true;
         }
       }
 
@@ -239,6 +274,7 @@ export function tetrisReducer(state: TetrisState, action: TetrisAction): TetrisS
       if (eventEndsAt && Date.now() > eventEndsAt) {
         activeEvent = null;
         eventEndsAt = null;
+        overdriveActive = false;
       }
 
       // Spawn next piece
@@ -246,7 +282,7 @@ export function tetrisReducer(state: TetrisState, action: TetrisAction): TetrisS
 
       // Check top-out (game over)
       if (!isValid(board, active)) {
-        return { ...state, board, score: newScore, lines: newLines, level: newLevel, status: "over", combo: 0, tSpinType: "none" as const, overdriveActive: state.overdriveActive, lastClearWasTetrisOrTSpin: state.lastClearWasTetrisOrTSpin, lastWasRotation: false, lastClearedRows: clearedRows };
+        return { ...state, board, score: newScore, lines: newLines, level: newLevel, status: "over", combo: 0, tSpinType: "none" as const, overdriveActive, lastClearWasTetrisOrTSpin: state.lastClearWasTetrisOrTSpin, lastWasRotation: false, lastClearedRows: clearedRows };
       }
 
       return {
@@ -264,7 +300,7 @@ export function tetrisReducer(state: TetrisState, action: TetrisAction): TetrisS
         linesUntilEvent: Math.max(linesUntilEvent, 0),
         combo: 0,
         tSpinType: "none" as const,
-        overdriveActive: state.overdriveActive,
+        overdriveActive,
         lastClearWasTetrisOrTSpin: state.lastClearWasTetrisOrTSpin,
         lastWasRotation: false,
         lastClearedRows: clearedRows,

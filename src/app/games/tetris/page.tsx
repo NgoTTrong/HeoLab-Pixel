@@ -13,20 +13,30 @@ import MuteButton from "@/components/MuteButton";
 import type { GameHelp } from "@/lib/gameHelp";
 
 const HELP: GameHelp = {
-  objective: "Clear horizontal lines by filling them completely with falling pieces. The game ends when pieces stack to the top of the board.",
+  objective: "Clear horizontal lines by filling them completely with falling pieces. Survive chaos events and reach the highest score before pieces stack to the top.",
   controls: [
     { key: "Left / Right", action: "Move piece sideways" },
-    { key: "Up / Z", action: "Rotate piece" },
-    { key: "Down", action: "Soft drop — faster fall" },
-    { key: "Space", action: "Hard drop — instant place" },
+    { key: "Up / Z",       action: "Rotate piece" },
+    { key: "Down",         action: "Soft drop — faster fall" },
+    { key: "Space",        action: "Hard drop — instant place" },
+    { key: "C",            action: "Hold piece" },
   ],
   scoring: [
-    { icon: "💥", name: "TETRIS", desc: "Clear 4 lines at once for a massive score bonus — the most efficient way to score." },
-    { icon: "🔗", name: "COMBOS", desc: "Clearing lines on consecutive drops multiplies your score." },
+    { icon: "💥", name: "TETRIS",       desc: "Clear 4 lines at once for 800 pts — the most efficient scoring move." },
+    { icon: "🔗", name: "COMBO",        desc: "Clear lines on consecutive drops to earn bonus points (50→100→200→400+)." },
+    { icon: "⤴️", name: "BACK TO BACK", desc: "Two Tetris or T-Spin clears in a row gives 1.5× score on the second." },
+    { icon: "🌀", name: "T-SPIN",       desc: "Lock a T-piece via rotation with 3+ corners occupied for big bonus points." },
   ],
   specials: [
-    { icon: "👻", name: "GHOST PIECE", desc: "A faint outline shows exactly where the piece will land, helping you plan placements." },
-    { icon: "⏩", name: "SPEED UP", desc: "Every 10 lines cleared increases the drop speed — how long can you last?" },
+    { icon: "⚡", name: "LIGHTNING",   desc: "Clears one random filled row — a free gift from the storm." },
+    { icon: "❄️", name: "ICE FREEZE",  desc: "Pauses auto-drop for 3 seconds — use the time wisely." },
+    { icon: "🔥", name: "FEVER",       desc: "2× score multiplier for 30 seconds." },
+    { icon: "💣", name: "BOMB BLAST",  desc: "Adds 2 garbage rows from the bottom. Deal with it." },
+    { icon: "🌪️", name: "WHIRLWIND",   desc: "Scrambles all locked cells sideways. Chaos." },
+    { icon: "⭐", name: "OVERDRIVE",   desc: "Pieces fall 2× faster — but score 3× for 15 seconds." },
+    { icon: "💀", name: "CURSE",       desc: "Adds 3 garbage rows from the bottom. Much worse than a bomb." },
+    { icon: "👻", name: "GHOST PIECE", desc: "Faint outline shows where the piece will land." },
+    { icon: "⏩", name: "SPEED UP",    desc: "Every 10 lines increases fall speed. At level 15 the board starts glitching." },
   ],
 };
 
@@ -292,6 +302,7 @@ export default function TetrisPage() {
   useEffect(() => {
     const cur = state.activeEvent;
     if (cur && cur !== prevEventRef.current) {
+      audioRef.current?.playEvent(cur);
       if (cur === "lightning")  setEventFlash("yellow");
       else if (cur === "bomb")  setEventFlash("red");
       else if (cur === "whirlwind") setEventFlash("purple");

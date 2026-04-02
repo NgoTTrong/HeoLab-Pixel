@@ -563,3 +563,11 @@ body {
   0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% { opacity: 1; }
   20%, 22%, 24%, 55%                      { opacity: 0.4; }
 }
+
+@keyframes borderGlitch {
+  0%, 90%, 100% { opacity: 1; }
+  92% { opacity: 0.3; }
+  94% { opacity: 1; }
+  96% { opacity: 0.5; }
+  98% { opacity: 1; }
+}

@@ -308,9 +308,20 @@ export default function TetrisPage() {
         </div>
 
         {/* Board */}
+        <div className="relative">
         <div
-          className={`relative border border-gray-800 ${shakeAnim}`}
-          style={{ width: CELL_SIZE * BOARD_COLS, height: CELL_SIZE * BOARD_ROWS }}
+          className={`relative border transition-colors duration-1000 ${shakeAnim} ${
+            state.level >= 20 ? "border-yellow-300/80" :
+            state.level >= 15 ? "border-pink-500/60"   :
+            state.level >= 10 ? "border-purple-500/40" :
+            "border-gray-800"
+          }`}
+          style={{
+            width:  CELL_SIZE * BOARD_COLS,
+            height: CELL_SIZE * BOARD_ROWS,
+            animation: state.level >= 15 && state.status === "playing"
+              ? "borderGlitch 4s ease-in-out infinite" : undefined,
+          }}
         >
           {/* Event banner */}
           {eventDef && (
@@ -432,6 +443,40 @@ export default function TetrisPage() {
               />
             );
           })}
+        </div>
+
+        {/* Storm intensity: edge decorations level 10+ */}
+        {state.level >= 10 && state.status === "playing" && (
+          <div
+            className="absolute pointer-events-none overflow-hidden"
+            style={{
+              left: 0,
+              top: 0,
+              width:  CELL_SIZE * BOARD_COLS,
+              height: CELL_SIZE * BOARD_ROWS,
+              zIndex: -1,
+            }}
+          >
+            <div
+              className="absolute left-0 top-0 bottom-0 w-0.5"
+              style={{
+                background: `linear-gradient(to bottom, transparent, ${
+                  state.level >= 20 ? "#ffe600" : state.level >= 15 ? "#ff2d95" : "#a855f7"
+                }88, transparent)`,
+                animation: "scanlineSwipe 3s linear infinite",
+              }}
+            />
+            <div
+              className="absolute right-0 top-0 bottom-0 w-0.5"
+              style={{
+                background: `linear-gradient(to bottom, transparent, ${
+                  state.level >= 20 ? "#ffe600" : state.level >= 15 ? "#ff2d95" : "#a855f7"
+                }88, transparent)`,
+                animation: "scanlineSwipe 3s linear 1.5s infinite",
+              }}
+            />
+          </div>
+        )}
         </div>
 
         {/* Next pieces */}

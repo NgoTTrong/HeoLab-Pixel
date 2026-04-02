@@ -1,5 +1,10 @@
-import { BOARD_COLS, BOARD_ROWS, LINE_SCORES, RANDOM_EVENTS, getSpeed } from "./config";
-import type { EventType } from "./config";
+import {
+  BOARD_COLS, BOARD_ROWS, LINE_SCORES, RANDOM_EVENTS, getSpeed,
+  COMBO_BONUSES, TSPIN_SCORES, BACK_TO_BACK_MULT,
+  OVERDRIVE_SCORE_MULT, OVERDRIVE_DURATION, FEVER_DURATION, FREEZE_DURATION,
+  GARBAGE_ROWS_BOMB, GARBAGE_ROWS_CURSE,
+} from "./config";
+import type { EventType, TSpinKind } from "./config";
 import { TETROMINOES, createBag } from "./tetrominoes";
 import type { TetrominoType } from "./tetrominoes";
 
@@ -28,6 +33,12 @@ export interface TetrisState {
   activeEvent: EventType | null;
   eventEndsAt: number | null; // for fever/freeze
   linesUntilEvent: number; // counts down to trigger event
+  combo: number;
+  lastClearWasTetrisOrTSpin: boolean;
+  tSpinType: "none" | TSpinKind;
+  overdriveActive: boolean;
+  lastWasRotation: boolean;
+  lastClearedRows: number[];
 }
 
 export type TetrisAction =
@@ -66,11 +77,15 @@ function lockPiece(board: Board, piece: ActivePiece): Board {
   return newBoard;
 }
 
-function clearLines(board: Board): { board: Board; cleared: number } {
+function clearLines(board: Board): { board: Board; cleared: number; clearedRows: number[] } {
+  const clearedRows: number[] = [];
+  board.forEach((row, i) => {
+    if (row.every((c) => c !== null)) clearedRows.push(i);
+  });
   const remaining = board.filter((row) => row.some((c) => c === null));
   const cleared = BOARD_ROWS - remaining.length;
   const newRows = Array.from({ length: cleared }, () => Array(BOARD_COLS).fill(null));
-  return { board: [...newRows, ...remaining], cleared };
+  return { board: [...newRows, ...remaining], cleared, clearedRows };
 }
 
 function ghostRow(board: Board, piece: ActivePiece): number {
@@ -127,6 +142,12 @@ function initialState(): TetrisState {
     activeEvent: null,
     eventEndsAt: null,
     linesUntilEvent: 5,
+    combo: 0,
+    lastClearWasTetrisOrTSpin: false,
+    tSpinType: "none",
+    overdriveActive: false,
+    lastWasRotation: false,
+    lastClearedRows: [],
   };
 }
 
@@ -143,12 +164,12 @@ export function tetrisReducer(state: TetrisState, action: TetrisAction): TetrisS
     case "MOVE_LEFT": {
       if (state.status !== "playing") return state;
       const moved = { ...state.active, col: state.active.col - 1 };
-      return isValid(state.board, moved) ? { ...state, active: moved } : state;
+      return isValid(state.board, moved) ? { ...state, active: moved, lastWasRotation: false } : state;
     }
     case "MOVE_RIGHT": {
       if (state.status !== "playing") return state;
       const moved = { ...state.active, col: state.active.col + 1 };
-      return isValid(state.board, moved) ? { ...state, active: moved } : state;
+      return isValid(state.board, moved) ? { ...state, active: moved, lastWasRotation: false } : state;
     }
     case "ROTATE": {
       if (state.status !== "playing") return state;
@@ -156,7 +177,7 @@ export function tetrisReducer(state: TetrisState, action: TetrisAction): TetrisS
       // Wall kick: try col offsets [0, -1, 1, -2, 2]
       for (const offset of [0, -1, 1, -2, 2]) {
         const kicked = { ...rotated, col: rotated.col + offset };
-        if (isValid(state.board, kicked)) return { ...state, active: kicked };
+        if (isValid(state.board, kicked)) return { ...state, active: kicked, lastWasRotation: true };
       }
       return state;
     }
@@ -166,7 +187,7 @@ export function tetrisReducer(state: TetrisState, action: TetrisAction): TetrisS
       const { active, bag, nextPieces } = state.held
         ? { active: spawnPiece(state.held), bag: state.bag, nextPieces: state.nextPieces }
         : drawFromBag(state);
-      return { ...state, active, held: newHeld, canHold: false, bag, nextPieces };
+      return { ...state, active, held: newHeld, canHold: false, bag, nextPieces, lastWasRotation: false };
     }
 
     case "MOVE_DOWN":
@@ -181,7 +202,7 @@ export function tetrisReducer(state: TetrisState, action: TetrisAction): TetrisS
 
       // Lock piece
       let board = lockPiece(state.board, state.active);
-      const { board: clearedBoard, cleared } = clearLines(board);
+      const { board: clearedBoard, cleared, clearedRows } = clearLines(board);
       board = clearedBoard;
 
       // Score
@@ -225,7 +246,7 @@ export function tetrisReducer(state: TetrisState, action: TetrisAction): TetrisS
 
       // Check top-out (game over)
       if (!isValid(board, active)) {
-        return { ...state, board, score: newScore, lines: newLines, level: newLevel, status: "over" };
+        return { ...state, board, score: newScore, lines: newLines, level: newLevel, status: "over", combo: 0, tSpinType: "none" as const, overdriveActive: state.overdriveActive, lastClearWasTetrisOrTSpin: state.lastClearWasTetrisOrTSpin, lastWasRotation: false, lastClearedRows: clearedRows };
       }
 
       return {
@@ -241,6 +262,12 @@ export function tetrisReducer(state: TetrisState, action: TetrisAction): TetrisS
         activeEvent,
         eventEndsAt,
         linesUntilEvent: Math.max(linesUntilEvent, 0),
+        combo: 0,
+        tSpinType: "none" as const,
+        overdriveActive: state.overdriveActive,
+        lastClearWasTetrisOrTSpin: state.lastClearWasTetrisOrTSpin,
+        lastWasRotation: false,
+        lastClearedRows: clearedRows,
       };
     }
 

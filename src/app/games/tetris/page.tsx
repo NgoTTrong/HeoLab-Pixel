@@ -72,6 +72,12 @@ export default function TetrisPage() {
       activeEvent: null,
       eventEndsAt: null,
       linesUntilEvent: 5,
+      combo: 0,
+      lastClearWasTetrisOrTSpin: false,
+      tSpinType: "none" as const,
+      overdriveActive: false,
+      lastWasRotation: false,
+      lastClearedRows: [],
     };
   });
   const [highScore, setHS] = useState(0);

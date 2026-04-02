@@ -30,6 +30,15 @@ const HELP: GameHelp = {
   ],
 };
 
+interface Particle {
+  id: number;
+  x: number; y: number;
+  vx: number; vy: number;
+  color: string;
+  life: number;  // 1.0 → 0.0
+  size: number;
+}
+
 const GAME_KEY = "tetris";
 const CELL_SIZE = 28; // px
 
@@ -86,10 +95,13 @@ export default function TetrisPage() {
   );
   const [shakeAnim, setShakeAnim] = useState("");
   const [flashRows, setFlashRows] = useState<number[]>([]);
+  const [particles, setParticles] = useState<Particle[]>([]);
   const audioRef = useRef<TetrisAudio | null>(null);
   const prevLinesRef = useRef(0);
   const prevStatusRef = useRef<string>("idle");
   const prevActiveRowRef = useRef(0);
+  const particleIdRef  = useRef(0);
+  const particleRafRef = useRef<number | null>(null);
 
   const triggerShake = useCallback((intensity: "light" | "medium" | "heavy") => {
     const cls = {
@@ -99,6 +111,31 @@ export default function TetrisPage() {
     }[intensity];
     setShakeAnim("");
     requestAnimationFrame(() => requestAnimationFrame(() => setShakeAnim(cls)));
+  }, []);
+
+  const spawnParticles = useCallback((rows: number[]) => {
+    if (rows.length === 0) return;
+    const newParticles: Particle[] = [];
+    const isTetris = rows.length >= 4;
+    for (const r of rows) {
+      for (let c = 0; c < BOARD_COLS; c++) {
+        const count = isTetris ? 5 : 3;
+        for (let i = 0; i < count; i++) {
+          const colors = ["#39ff14","#ff2d95","#ffe600","#00d4ff","#a855f7","#f97316"];
+          newParticles.push({
+            id: ++particleIdRef.current,
+            x:  c * CELL_SIZE + CELL_SIZE / 2,
+            y:  r * CELL_SIZE + CELL_SIZE / 2,
+            vx: (Math.random() - 0.5) * 8,
+            vy: (Math.random() - 0.9) * 7,
+            color: colors[Math.floor(Math.random() * colors.length)],
+            life: 1.0,
+            size: Math.random() * 4 + 2,
+          });
+        }
+      }
+    }
+    setParticles(prev => [...prev, ...newParticles]);
   }, []);
 
   useEffect(() => { setHS(getHighScore(GAME_KEY)); }, []);
@@ -124,17 +161,51 @@ export default function TetrisPage() {
     localStorage.setItem("tetris-sound-muted", muted ? "1" : "0");
   }, [muted]);
 
+  const hasParticles = particles.length > 0;
+  useEffect(() => {
+    if (!hasParticles) {
+      if (particleRafRef.current !== null) {
+        cancelAnimationFrame(particleRafRef.current);
+        particleRafRef.current = null;
+      }
+      return;
+    }
+    const tick = () => {
+      setParticles(prev => {
+        const next = prev
+          .map(p => ({
+            ...p,
+            x:    p.x + p.vx,
+            y:    p.y + p.vy,
+            vy:   p.vy + 0.3,
+            life: p.life - 0.04,
+          }))
+          .filter(p => p.life > 0);
+        return next;
+      });
+      particleRafRef.current = requestAnimationFrame(tick);
+    };
+    particleRafRef.current = requestAnimationFrame(tick);
+    return () => {
+      if (particleRafRef.current !== null) {
+        cancelAnimationFrame(particleRafRef.current);
+        particleRafRef.current = null;
+      }
+    };
+  }, [hasParticles]);
+
   // Detect line clears
   useEffect(() => {
     const delta = state.lines - prevLinesRef.current;
     if (delta > 0) {
       setFlashRows(state.lastClearedRows);
       setTimeout(() => setFlashRows([]), 150);
+      spawnParticles(state.lastClearedRows);
       triggerShake(delta >= 4 ? "medium" : "light");
       audioRef.current?.playClear(delta);
     }
     prevLinesRef.current = state.lines;
-  }, [state.lines, state.lastClearedRows, triggerShake]);
+  }, [state.lines, state.lastClearedRows, triggerShake, spawnParticles]);
 
   // Detect game over
   useEffect(() => {
@@ -247,6 +318,25 @@ export default function TetrisPage() {
                 height: CELL_SIZE,
                 background: "rgba(255,255,255,0.85)",
                 animation: "overlayIn 0.15s ease-out forwards",
+              }}
+            />
+          ))}
+
+          {/* Particles */}
+          {particles.map(p => (
+            <div
+              key={p.id}
+              className="pointer-events-none absolute"
+              style={{
+                left:            p.x - p.size / 2,
+                top:             p.y - p.size / 2,
+                width:           p.size,
+                height:          p.size,
+                backgroundColor: p.color,
+                opacity:         p.life,
+                boxShadow:       `0 0 ${p.size * 2}px ${p.color}`,
+                borderRadius:    "1px",
+                zIndex:          15,
               }}
             />
           ))}

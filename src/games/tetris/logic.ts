@@ -197,7 +197,7 @@ export function tetrisReducer(state: TetrisState, action: TetrisAction): TetrisS
 
       const moved = { ...state.active, row: state.active.row + 1 };
       if (isValid(state.board, moved)) {
-        return { ...state, active: moved };
+        return { ...state, active: moved, lastWasRotation: false };
       }
 
       // Lock piece
@@ -224,9 +224,9 @@ export function tetrisReducer(state: TetrisState, action: TetrisAction): TetrisS
         activeEvent = event.type;
         if (event.type === "freeze") {
           board = applyEvent(board, event.type);
-          eventEndsAt = Date.now() + 3000;
+          eventEndsAt = Date.now() + FREEZE_DURATION;
         } else if (event.type === "fever") {
-          eventEndsAt = Date.now() + 30000;
+          eventEndsAt = Date.now() + FEVER_DURATION;
         } else if (event.type === "lightning") {
           board = applyEvent(board, event.type);
           eventEndsAt = Date.now() + 2000;
@@ -279,7 +279,7 @@ export function tetrisReducer(state: TetrisState, action: TetrisAction): TetrisS
         dropped.row++;
         dropDist++;
       }
-      const locked = { ...state, active: dropped, score: state.score + dropDist * 2 };
+      const locked = { ...state, active: dropped, score: state.score + dropDist * 2, lastWasRotation: false };
       return tetrisReducer(locked, { type: "TICK", now: Date.now() });
     }
 

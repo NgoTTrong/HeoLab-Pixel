@@ -250,20 +250,52 @@ export function tetrisReducer(state: TetrisState, action: TetrisAction): TetrisS
       const { board: clearedBoard, cleared, clearedRows } = clearLines(board);
       board = clearedBoard;
 
-      // Score
-      const isFever = state.activeEvent === "fever";
-      const multiplier = isFever ? 2 : 1;
-      const lineScore = LINE_SCORES[Math.min(cleared, 4)] * multiplier;
-      const newScore = state.score + lineScore;
-      const newLines = state.lines + cleared;
-      const newLevel = Math.floor(newLines / 10) + 1;
+      // T-spin detection (runs against pre-clear board)
+      const tSpinType = detectTSpin(state.board, state.active, state.lastWasRotation);
 
-      // Event trigger
+      // Event trigger variables (hoisted so scoring can read overdriveActive)
       let linesUntilEvent = state.linesUntilEvent - cleared;
       let activeEvent = state.activeEvent;
       let eventEndsAt = state.eventEndsAt;
       let overdriveActive = state.overdriveActive;
 
+      // --- Scoring ---
+      const isFever     = state.activeEvent === "fever";
+      const isOverdrive = overdriveActive;
+
+      // Base score: T-spin takes priority over line score
+      let baseScore = 0;
+      if (tSpinType !== "none" && cleared > 0) {
+        const kindKey =
+          cleared === 1 ? (tSpinType === "mini" ? "mini" : "single")
+          : cleared === 2 ? "double"
+          : "triple";
+        baseScore = TSPIN_SCORES[kindKey as TSpinKind];
+      } else {
+        baseScore = LINE_SCORES[Math.min(cleared, 4)];
+      }
+
+      // Back-to-back bonus (Tetris or T-spin after Tetris or T-spin)
+      const isTetrisOrTSpin = cleared === 4 || tSpinType !== "none";
+      const b2bMult = (state.lastClearWasTetrisOrTSpin && isTetrisOrTSpin && cleared > 0)
+        ? BACK_TO_BACK_MULT : 1;
+
+      // Fever + Overdrive multipliers
+      const scoreMult = (isFever ? 2 : 1) * (isOverdrive ? OVERDRIVE_SCORE_MULT : 1);
+
+      const lineScore  = Math.floor(baseScore * b2bMult * scoreMult);
+
+      // Combo
+      const newCombo   = cleared > 0 ? state.combo + 1 : 0;
+      const comboBonus = cleared > 0
+        ? Math.floor((COMBO_BONUSES[Math.min(newCombo, COMBO_BONUSES.length - 1)] ?? 400) * scoreMult)
+        : 0;
+
+      const newScore = state.score + lineScore + comboBonus;
+      const newLines = state.lines + cleared;
+      const newLevel = Math.floor(newLines / 10) + 1;
+
+      // Event trigger
       if (linesUntilEvent <= 0 && cleared > 0) {
         linesUntilEvent = 5;
         overdriveActive = false; // clear any prior overdrive when a new event fires
@@ -304,7 +336,20 @@ export function tetrisReducer(state: TetrisState, action: TetrisAction): TetrisS
 
       // Check top-out (game over)
       if (!isValid(board, active)) {
-        return { ...state, board, score: newScore, lines: newLines, level: newLevel, status: "over", combo: 0, tSpinType: "none" as const, overdriveActive, lastClearWasTetrisOrTSpin: state.lastClearWasTetrisOrTSpin, lastWasRotation: false, lastClearedRows: clearedRows };
+        return {
+          ...state,
+          board,
+          score: newScore,
+          lines: newLines,
+          level: newLevel,
+          status: "over",
+          combo: 0,
+          tSpinType: "none",
+          lastClearWasTetrisOrTSpin: false,
+          overdriveActive,
+          lastWasRotation: false,
+          lastClearedRows: clearedRows,
+        };
       }
 
       return {
@@ -319,11 +364,11 @@ export function tetrisReducer(state: TetrisState, action: TetrisAction): TetrisS
         level: newLevel,
         activeEvent,
         eventEndsAt,
-        linesUntilEvent: Math.max(linesUntilEvent, 0),
-        combo: 0,
-        tSpinType: "none" as const,
         overdriveActive,
-        lastClearWasTetrisOrTSpin: state.lastClearWasTetrisOrTSpin,
+        linesUntilEvent: Math.max(linesUntilEvent, 0),
+        combo: newCombo,
+        lastClearWasTetrisOrTSpin: cleared > 0 ? isTetrisOrTSpin : state.lastClearWasTetrisOrTSpin,
+        tSpinType,
         lastWasRotation: false,
         lastClearedRows: clearedRows,
       };

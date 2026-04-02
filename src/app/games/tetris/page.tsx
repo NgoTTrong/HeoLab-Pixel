@@ -39,6 +39,14 @@ interface Particle {
   size: number;
 }
 
+interface Popup {
+  id: number;
+  text: string;
+  color: string;
+  y: number;
+  type: "score" | "combo" | "special";
+}
+
 const GAME_KEY = "tetris";
 const CELL_SIZE = 28; // px
 
@@ -97,6 +105,9 @@ export default function TetrisPage() {
   const [flashRows, setFlashRows] = useState<number[]>([]);
   const [particles, setParticles] = useState<Particle[]>([]);
   const [eventFlash, setEventFlash] = useState<string | null>(null);
+  const [popups, setPopups] = useState<Popup[]>([]);
+  const popupIdRef = useRef(0);
+  const prevScoreRef = useRef(0);
   const audioRef = useRef<TetrisAudio | null>(null);
   const prevLinesRef = useRef(0);
   const prevStatusRef = useRef<string>("idle");
@@ -113,6 +124,12 @@ export default function TetrisPage() {
     }[intensity];
     setShakeAnim("");
     requestAnimationFrame(() => requestAnimationFrame(() => setShakeAnim(cls)));
+  }, []);
+
+  const addPopup = useCallback((text: string, color: string, y: number, type: Popup["type"] = "score") => {
+    const id = ++popupIdRef.current;
+    setPopups(prev => [...prev, { id, text, color, y, type }]);
+    setTimeout(() => setPopups(prev => prev.filter(p => p.id !== id)), 1200);
   }, []);
 
   const spawnParticles = useCallback((rows: number[]) => {
@@ -205,9 +222,28 @@ export default function TetrisPage() {
       spawnParticles(state.lastClearedRows);
       triggerShake(delta >= 4 ? "medium" : "light");
       audioRef.current?.playClear(delta);
+
+      // Popups
+      const topRow = state.lastClearedRows.length > 0
+        ? Math.min(...state.lastClearedRows) * CELL_SIZE
+        : 0;
+      const scoreDelta = state.score - prevScoreRef.current;
+      if (scoreDelta > 0) addPopup(`+${scoreDelta}`, "#ffe600", topRow, "score");
+      if (state.combo >= 2) addPopup(`COMBO ×${state.combo}`, "#ff2d95", topRow + 20, "combo");
+      if (state.tSpinType !== "none") {
+        const label = state.tSpinType === "mini"
+          ? "T-SPIN MINI!"
+          : `T-SPIN ${["","SINGLE","DOUBLE","TRIPLE"][Math.min(delta,3)]}!`;
+        addPopup(label, "#a855f7", topRow + 40, "special");
+      }
+      if (delta === 4) addPopup("TETRIS!", "#ffe600", topRow + 40, "special");
+      if (state.lastClearWasTetrisOrTSpin && (delta === 4 || state.tSpinType !== "none")) {
+        addPopup("BACK TO BACK!", "#00d4ff", topRow + 60, "special");
+      }
     }
     prevLinesRef.current = state.lines;
-  }, [state.lines, state.lastClearedRows, triggerShake, spawnParticles]);
+    prevScoreRef.current = state.score;
+  }, [state.lines, state.lastClearedRows, state.score, state.combo, state.tSpinType, state.lastClearWasTetrisOrTSpin, triggerShake, spawnParticles, addPopup]);
 
   // Detect game over
   useEffect(() => {
@@ -416,6 +452,25 @@ export default function TetrisPage() {
               }}
             />
           )}
+
+          {/* Score / combo / special popups */}
+          {popups.map(p => (
+            <div
+              key={p.id}
+              className="absolute pointer-events-none font-pixel"
+              style={{
+                left:       "50%",
+                top:        p.y,
+                transform:  "translateX(-50%)",
+                color:      p.color,
+                fontSize:   p.type === "special" ? "0.55rem" : "0.5rem",
+                textShadow: `0 0 8px ${p.color}`,
+                animation:  "floatUp 1.2s ease-out forwards",
+                whiteSpace: "nowrap",
+                zIndex:     25,
+              }}
+            >{p.text}</div>
+          ))}
 
           {/* Cells */}
           {Array.from({ length: BOARD_ROWS * BOARD_COLS }, (_, idx) => {

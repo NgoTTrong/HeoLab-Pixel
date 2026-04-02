@@ -245,10 +245,10 @@ export function tetrisReducer(state: TetrisState, action: TetrisAction): TetrisS
 
       if (linesUntilEvent <= 0 && cleared > 0) {
         linesUntilEvent = 5;
+        overdriveActive = false; // clear any prior overdrive when a new event fires
         const event = RANDOM_EVENTS[Math.floor(Math.random() * RANDOM_EVENTS.length)];
         activeEvent = event.type;
         if (event.type === "freeze") {
-          board = applyEvent(board, event.type);
           eventEndsAt = Date.now() + FREEZE_DURATION;
         } else if (event.type === "fever") {
           eventEndsAt = Date.now() + FEVER_DURATION;
@@ -271,7 +271,8 @@ export function tetrisReducer(state: TetrisState, action: TetrisAction): TetrisS
       }
 
       // Expire time-based events
-      if (eventEndsAt && Date.now() > eventEndsAt) {
+      const now = action.type === "TICK" ? action.now : Date.now();
+      if (eventEndsAt && now > eventEndsAt) {
         activeEvent = null;
         eventEndsAt = null;
         overdriveActive = false;

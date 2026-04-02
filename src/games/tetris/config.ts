@@ -1,4 +1,6 @@
-export type EventType = "lightning" | "bomb" | "freeze" | "fever";
+export type EventType =
+  | "lightning" | "bomb" | "freeze" | "fever"
+  | "whirlwind" | "overdrive" | "curse";
 
 export interface EventDef {
   type: EventType;
@@ -9,9 +11,12 @@ export interface EventDef {
 
 export const RANDOM_EVENTS: EventDef[] = [
   { type: "lightning", emoji: "⚡", label: "LIGHTNING STRIKE!", color: "#ffe600" },
-  { type: "bomb",      emoji: "💣", label: "BOMB BLOCK!",       color: "#ff2d95" },
+  { type: "bomb",      emoji: "💣", label: "BOMB BLAST!",       color: "#ff2d95" },
   { type: "freeze",    emoji: "❄️", label: "ICE FREEZE!",       color: "#00d4ff" },
   { type: "fever",     emoji: "🔥", label: "FEVER TIME!",       color: "#f97316" },
+  { type: "whirlwind", emoji: "🌪️", label: "WHIRLWIND!",        color: "#a855f7" },
+  { type: "overdrive", emoji: "⭐", label: "OVERDRIVE!",        color: "#ffe600" },
+  { type: "curse",     emoji: "💀", label: "CURSE!",            color: "#39ff14" },
 ];
 
 export const BOARD_COLS = 10;
@@ -37,5 +42,26 @@ export function getSpeed(level: number): number {
   return ms;
 }
 
-// Score per lines cleared
+// Score per lines cleared (base)
 export const LINE_SCORES = [0, 100, 300, 500, 800];
+
+// Combo bonuses (index = combo count, capped at index 4)
+export const COMBO_BONUSES = [0, 50, 100, 200, 400];
+
+// T-Spin scores
+export const TSPIN_SCORES: Record<string, number> = {
+  mini:   400,
+  single: 800,
+  double: 1200,
+  triple: 1600,
+};
+
+// Multipliers
+export const BACK_TO_BACK_MULT    = 1.5;
+export const OVERDRIVE_SPEED_MULT = 2;
+export const OVERDRIVE_SCORE_MULT = 3;
+export const OVERDRIVE_DURATION   = 15000;
+export const FEVER_DURATION       = 30000;
+export const FREEZE_DURATION      = 3000;
+export const GARBAGE_ROWS_BOMB    = 2;
+export const GARBAGE_ROWS_CURSE   = 3;

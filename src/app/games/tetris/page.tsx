@@ -96,12 +96,14 @@ export default function TetrisPage() {
   const [shakeAnim, setShakeAnim] = useState("");
   const [flashRows, setFlashRows] = useState<number[]>([]);
   const [particles, setParticles] = useState<Particle[]>([]);
+  const [eventFlash, setEventFlash] = useState<string | null>(null);
   const audioRef = useRef<TetrisAudio | null>(null);
   const prevLinesRef = useRef(0);
   const prevStatusRef = useRef<string>("idle");
   const prevActiveRowRef = useRef(0);
   const particleIdRef  = useRef(0);
   const particleRafRef = useRef<number | null>(null);
+  const prevEventRef = useRef<string | null>(null);
 
   const triggerShake = useCallback((intensity: "light" | "medium" | "heavy") => {
     const cls = {
@@ -251,6 +253,18 @@ export default function TetrisPage() {
     return () => clearTimeout(id);
   }, [state.activeEvent, state.eventEndsAt]);
 
+  useEffect(() => {
+    const cur = state.activeEvent;
+    if (cur && cur !== prevEventRef.current) {
+      if (cur === "lightning")  setEventFlash("yellow");
+      else if (cur === "bomb")  setEventFlash("red");
+      else if (cur === "whirlwind") setEventFlash("purple");
+      else if (cur === "curse") setEventFlash("green");
+      setTimeout(() => setEventFlash(null), 180);
+    }
+    prevEventRef.current = cur;
+  }, [state.activeEvent]);
+
   const handleKey = useCallback((e: KeyboardEvent) => {
     if (state.status === "idle" && e.key === " ") { e.preventDefault(); dispatch({ type: "START" }); return; }
     if (state.status !== "playing") return;
@@ -340,6 +354,57 @@ export default function TetrisPage() {
               }}
             />
           ))}
+
+          {/* Event visual overlays */}
+          {state.activeEvent === "fever" && (
+            <div className="absolute inset-0 pointer-events-none z-20 overflow-hidden">
+              <div className="absolute inset-0"
+                style={{ background: "radial-gradient(ellipse at bottom, rgba(249,115,22,0.35) 0%, transparent 70%)" }} />
+              <div className="absolute inset-0 border-2 border-orange-500/60"
+                style={{ animation: "pulseRing 1s ease-out infinite" }} />
+            </div>
+          )}
+
+          {state.activeEvent === "freeze" && (
+            <div className="absolute inset-0 pointer-events-none z-20">
+              <div className="absolute inset-0"
+                style={{ background: "rgba(0,212,255,0.08)", border: "2px solid rgba(0,212,255,0.3)" }} />
+              <div className="absolute inset-0"
+                style={{ background: "radial-gradient(ellipse at top, rgba(0,212,255,0.15) 0%, transparent 60%)" }} />
+            </div>
+          )}
+
+          {state.activeEvent === "overdrive" && (
+            <div className="absolute inset-0 pointer-events-none z-20">
+              <div className="absolute inset-0 border-2 border-yellow-300/70"
+                style={{ animation: "pulseRing 0.6s ease-out infinite" }} />
+              <div className="absolute inset-0"
+                style={{ background: "radial-gradient(ellipse at center, rgba(255,230,0,0.06) 0%, transparent 70%)" }} />
+            </div>
+          )}
+
+          {state.activeEvent === "curse" && (
+            <div className="absolute inset-0 pointer-events-none z-20">
+              <div className="absolute inset-x-0 bottom-0 h-1/3"
+                style={{ background: "linear-gradient(to top, rgba(57,255,20,0.2), transparent)" }} />
+              <div className="absolute inset-0 border border-neon-green/30" />
+            </div>
+          )}
+
+          {/* One-shot flash on event trigger */}
+          {eventFlash && (
+            <div
+              className="absolute inset-0 pointer-events-none z-30"
+              style={{
+                backgroundColor:
+                  eventFlash === "yellow" ? "rgba(255,230,0,0.35)" :
+                  eventFlash === "red"    ? "rgba(255,45,149,0.35)" :
+                  eventFlash === "purple" ? "rgba(168,85,247,0.35)" :
+                  "rgba(57,255,20,0.25)",
+                animation: "overlayIn 0.18s ease-out forwards",
+              }}
+            />
+          )}
 
           {/* Cells */}
           {Array.from({ length: BOARD_ROWS * BOARD_COLS }, (_, idx) => {

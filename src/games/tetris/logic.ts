@@ -94,6 +94,27 @@ function ghostRow(board: Board, piece: ActivePiece): number {
   return ghost.row;
 }
 
+function detectTSpin(
+  board: Board,
+  piece: ActivePiece,
+  wasRotation: boolean
+): "none" | TSpinKind {
+  if (piece.type !== "T" || !wasRotation) return "none";
+  // Check all 4 corners of the T bounding box (3×3 grid)
+  const corners: [number, number][] = [
+    [piece.col,     piece.row    ],
+    [piece.col + 2, piece.row    ],
+    [piece.col,     piece.row + 2],
+    [piece.col + 2, piece.row + 2],
+  ];
+  const occupied = corners.filter(([c, r]) =>
+    c < 0 || c >= BOARD_COLS || r < 0 || r >= BOARD_ROWS ||
+    (board[r] !== undefined && board[r][c] !== null)
+  ).length;
+  if (occupied < 3) return "none";
+  return occupied >= 4 ? "single" : "mini";
+}
+
 function spawnPiece(type: TetrominoType): ActivePiece {
   return { type, rotation: 0, col: 3, row: 0 };
 }

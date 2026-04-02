@@ -84,10 +84,22 @@ export default function TetrisPage() {
   const [muted, setMuted] = useState(() =>
     typeof window !== "undefined" && localStorage.getItem("tetris-sound-muted") === "1"
   );
+  const [shakeAnim, setShakeAnim] = useState("");
+  const [flashRows, setFlashRows] = useState<number[]>([]);
   const audioRef = useRef<TetrisAudio | null>(null);
   const prevLinesRef = useRef(0);
   const prevStatusRef = useRef<string>("idle");
   const prevActiveRowRef = useRef(0);
+
+  const triggerShake = useCallback((intensity: "light" | "medium" | "heavy") => {
+    const cls = {
+      light:  "animate-[screenShake_0.2s_ease-out]",
+      medium: "animate-[screenShake_0.3s_ease-out]",
+      heavy:  "animate-[screenShake_0.5s_ease-out]",
+    }[intensity];
+    setShakeAnim("");
+    requestAnimationFrame(() => requestAnimationFrame(() => setShakeAnim(cls)));
+  }, []);
 
   useEffect(() => { setHS(getHighScore(GAME_KEY)); }, []);
 
@@ -115,15 +127,23 @@ export default function TetrisPage() {
   // Detect line clears
   useEffect(() => {
     const delta = state.lines - prevLinesRef.current;
-    if (delta > 0) audioRef.current?.playClear(delta);
+    if (delta > 0) {
+      setFlashRows(state.lastClearedRows);
+      setTimeout(() => setFlashRows([]), 150);
+      triggerShake(delta >= 4 ? "medium" : "light");
+      audioRef.current?.playClear(delta);
+    }
     prevLinesRef.current = state.lines;
-  }, [state.lines]);
+  }, [state.lines, state.lastClearedRows, triggerShake]);
 
   // Detect game over
   useEffect(() => {
-    if (state.status === "over" && prevStatusRef.current !== "over") audioRef.current?.playGameOver();
+    if (state.status === "over" && prevStatusRef.current !== "over") {
+      triggerShake("heavy");
+      audioRef.current?.playGameOver();
+    }
     prevStatusRef.current = state.status;
-  }, [state.status]);
+  }, [state.status, triggerShake]);
 
   // Detect piece land (new piece spawned when row drops back to top)
   useEffect(() => {
@@ -168,10 +188,10 @@ export default function TetrisPage() {
       case "ArrowRight": e.preventDefault(); dispatch({ type: "MOVE_RIGHT" }); audioRef.current?.playMove(); break;
       case "ArrowDown":  e.preventDefault(); dispatch({ type: "MOVE_DOWN" }); break;
       case "ArrowUp":    e.preventDefault(); dispatch({ type: "ROTATE" });     audioRef.current?.playRotate(); break;
-      case " ":          e.preventDefault(); dispatch({ type: "HARD_DROP" }); break;
+      case " ":          e.preventDefault(); dispatch({ type: "HARD_DROP" }); triggerShake("light"); break;
       case "c": case "C": dispatch({ type: "HOLD" }); break;
     }
-  }, [state.status]);
+  }, [state.status, triggerShake]);
 
   useEffect(() => {
     window.addEventListener("keydown", handleKey);
@@ -204,7 +224,7 @@ export default function TetrisPage() {
 
         {/* Board */}
         <div
-          className="relative border border-gray-800"
+          className={`relative border border-gray-800 ${shakeAnim}`}
           style={{ width: CELL_SIZE * BOARD_COLS, height: CELL_SIZE * BOARD_ROWS }}
         >
           {/* Event banner */}
@@ -216,6 +236,20 @@ export default function TetrisPage() {
               {eventDef.emoji} {eventDef.label}
             </div>
           )}
+
+          {/* Line clear flash */}
+          {flashRows.map((r) => (
+            <div
+              key={r}
+              className="absolute inset-x-0 pointer-events-none z-10"
+              style={{
+                top: r * CELL_SIZE,
+                height: CELL_SIZE,
+                background: "rgba(255,255,255,0.85)",
+                animation: "overlayIn 0.15s ease-out forwards",
+              }}
+            />
+          ))}
 
           {/* Cells */}
           {Array.from({ length: BOARD_ROWS * BOARD_COLS }, (_, idx) => {

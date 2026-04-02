@@ -91,7 +91,7 @@ export default function TetrisPage() {
       held: null,
       canHold: true,
       bag: [],
-      nextPieces: [] as any[],
+      nextPieces: [] as TetrominoType[],
       score: 0,
       lines: 0,
       level: 1,
@@ -125,6 +125,7 @@ export default function TetrisPage() {
   const particleIdRef  = useRef(0);
   const particleRafRef = useRef<number | null>(null);
   const prevEventRef = useRef<string | null>(null);
+  const prevB2BRef = useRef(false);
 
   const triggerShake = useCallback((intensity: "light" | "medium" | "heavy") => {
     const cls = {
@@ -247,12 +248,13 @@ export default function TetrisPage() {
         addPopup(label, "#a855f7", topRow + 40, "special");
       }
       if (delta === 4) addPopup("TETRIS!", "#ffe600", topRow + 40, "special");
-      if (state.lastClearWasTetrisOrTSpin && (delta === 4 || state.tSpinType !== "none")) {
+      if (prevB2BRef.current && (delta === 4 || state.tSpinType !== "none")) {
         addPopup("BACK TO BACK!", "#00d4ff", topRow + 60, "special");
       }
     }
     prevLinesRef.current = state.lines;
     prevScoreRef.current = state.score;
+    prevB2BRef.current = state.lastClearWasTetrisOrTSpin;
   }, [state.lines, state.lastClearedRows, state.score, state.combo, state.tSpinType, state.lastClearWasTetrisOrTSpin, triggerShake, spawnParticles, addPopup]);
 
   // Detect game over
@@ -319,7 +321,10 @@ export default function TetrisPage() {
       case "ArrowLeft":  e.preventDefault(); dispatch({ type: "MOVE_LEFT" });  audioRef.current?.playMove(); break;
       case "ArrowRight": e.preventDefault(); dispatch({ type: "MOVE_RIGHT" }); audioRef.current?.playMove(); break;
       case "ArrowDown":  e.preventDefault(); dispatch({ type: "MOVE_DOWN" }); break;
-      case "ArrowUp":    e.preventDefault(); dispatch({ type: "ROTATE" });     audioRef.current?.playRotate(); break;
+      case "ArrowUp":
+      case "z":
+      case "Z":
+        e.preventDefault(); dispatch({ type: "ROTATE" });     audioRef.current?.playRotate(); break;
       case " ":          e.preventDefault(); dispatch({ type: "HARD_DROP" }); triggerShake("light"); break;
       case "c": case "C": dispatch({ type: "HOLD" }); break;
     }

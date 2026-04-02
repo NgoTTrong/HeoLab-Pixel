@@ -368,7 +368,7 @@ export function tetrisReducer(state: TetrisState, action: TetrisAction): TetrisS
         linesUntilEvent: Math.max(linesUntilEvent, 0),
         combo: newCombo,
         lastClearWasTetrisOrTSpin: cleared > 0 ? isTetrisOrTSpin : state.lastClearWasTetrisOrTSpin,
-        tSpinType,
+        tSpinType: cleared > 0 ? tSpinType : "none",
         lastWasRotation: false,
         lastClearedRows: clearedRows,
       };
@@ -376,6 +376,7 @@ export function tetrisReducer(state: TetrisState, action: TetrisAction): TetrisS
 
     case "HARD_DROP": {
       if (state.status !== "playing") return state;
+      if (state.activeEvent === "freeze") return state;
       let dropped = { ...state.active };
       let dropDist = 0;
       while (isValid(state.board, { ...dropped, row: dropped.row + 1 })) {

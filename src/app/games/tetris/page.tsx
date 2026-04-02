@@ -4,7 +4,7 @@ import { useReducer, useEffect, useCallback, useState, useRef } from "react";
 import GameLayout from "@/components/GameLayout";
 import PixelButton from "@/components/PixelButton";
 import { tetrisReducer, getAbsCells, ghostRow } from "@/games/tetris/logic";
-import { BOARD_COLS, BOARD_ROWS, RANDOM_EVENTS, getSpeed } from "@/games/tetris/config";
+import { BOARD_COLS, BOARD_ROWS, RANDOM_EVENTS, getSpeed, OVERDRIVE_SPEED_MULT } from "@/games/tetris/config";
 import { TETROMINOES, type TetrominoType } from "@/games/tetris/tetrominoes";
 import { getHighScore, setHighScore } from "@/lib/scores";
 import { createTetrisAudio } from "@/games/tetris/audio";
@@ -136,10 +136,13 @@ export default function TetrisPage() {
 
   useEffect(() => {
     if (state.status !== "playing") return;
-    const ms = getSpeed(state.level);
+    const ms = Math.max(
+      50,
+      Math.floor(getSpeed(state.level) / (state.overdriveActive ? OVERDRIVE_SPEED_MULT : 1))
+    );
     const id = setInterval(() => dispatch({ type: "TICK", now: Date.now() }), ms);
     return () => clearInterval(id);
-  }, [state.status, state.level]);
+  }, [state.status, state.level, state.overdriveActive]);
 
   useEffect(() => {
     if (state.status === "over" && state.score > highScore) {

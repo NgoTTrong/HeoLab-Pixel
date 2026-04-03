@@ -1,11 +1,11 @@
 import {
-  BOARD_COLS, BOARD_ROWS, LINE_SCORES, RANDOM_EVENTS, getSpeed,
+  BOARD_COLS, BOARD_ROWS, LINE_SCORES, RANDOM_EVENTS, getSpeed, getZenSpeed,
   COMBO_BONUSES, TSPIN_SCORES, BACK_TO_BACK_MULT,
   OVERDRIVE_SCORE_MULT, OVERDRIVE_DURATION, FEVER_DURATION, FREEZE_DURATION,
-  GARBAGE_ROWS_BOMB, GARBAGE_ROWS_CURSE,
+  GARBAGE_ROWS_BOMB, GARBAGE_ROWS_CURSE, ZEN_PIECE_WEIGHTS,
 } from "./config";
-import type { EventType, TSpinKind } from "./config";
-import { TETROMINOES, createBag } from "./tetrominoes";
+import type { EventType, TSpinKind, GameMode } from "./config";
+import { TETROMINOES, createBag, createWeightedBag } from "./tetrominoes";
 import type { TetrominoType } from "./tetrominoes";
 
 export type Cell = string | null; // color string or null
@@ -39,10 +39,12 @@ export interface TetrisState {
   overdriveActive: boolean;
   lastWasRotation: boolean;
   lastClearedRows: number[];
+  mode: GameMode;
+  streak: number;
 }
 
 export type TetrisAction =
-  | { type: "START" }
+  | { type: "START"; mode: GameMode }
   | { type: "RESET" }
   | { type: "MOVE_LEFT" }
   | { type: "MOVE_RIGHT" }
@@ -120,9 +122,10 @@ function spawnPiece(type: TetrominoType): ActivePiece {
 }
 
 function drawFromBag(state: TetrisState): { active: ActivePiece; bag: TetrominoType[]; nextPieces: TetrominoType[] } {
+  const createBagFn = state.mode === "zen" ? () => createWeightedBag(ZEN_PIECE_WEIGHTS) : createBag;
   let bag = [...state.bag];
   const allPieces = [...state.nextPieces, ...bag];
-  if (allPieces.length < 4) bag = [...bag, ...createBag()];
+  if (allPieces.length < 4) bag = [...bag, ...createBagFn()];
   const next = [...state.nextPieces, ...bag];
   const active = spawnPiece(next[0]);
   return { active, bag: next.slice(4), nextPieces: next.slice(1, 4) };
@@ -169,9 +172,10 @@ function applyEvent(board: Board, event: EventType): Board {
   return newBoard;
 }
 
-function initialState(): TetrisState {
-  const bag1 = createBag();
-  const bag2 = createBag();
+function initialState(mode: GameMode = "storm"): TetrisState {
+  const createBagFn = mode === "zen" ? () => createWeightedBag(ZEN_PIECE_WEIGHTS) : createBag;
+  const bag1 = createBagFn();
+  const bag2 = createBagFn();
   const allPieces = [...bag1, ...bag2];
   return {
     board: emptyBoard(),
@@ -193,13 +197,15 @@ function initialState(): TetrisState {
     overdriveActive: false,
     lastWasRotation: false,
     lastClearedRows: [],
+    mode,
+    streak: 0,
   };
 }
 
 export function tetrisReducer(state: TetrisState, action: TetrisAction): TetrisState {
   switch (action.type) {
     case "START":
-      return { ...initialState(), status: "playing" };
+      return { ...initialState(action.mode), status: "playing" };
     case "RESET":
       return initialState();
 
@@ -287,6 +293,7 @@ export function tetrisReducer(state: TetrisState, action: TetrisAction): TetrisS
 
       // Combo
       const newCombo   = cleared > 0 ? state.combo + 1 : 0;
+      const newStreak  = cleared > 0 ? state.streak + 1 : 0;
       const comboBonus = cleared > 0
         ? Math.floor((COMBO_BONUSES[Math.min(newCombo, COMBO_BONUSES.length - 1)] ?? 400) * scoreMult)
         : 0;
@@ -296,7 +303,7 @@ export function tetrisReducer(state: TetrisState, action: TetrisAction): TetrisS
       const newLevel = Math.floor(newLines / 10) + 1;
 
       // Event trigger
-      if (linesUntilEvent <= 0 && cleared > 0) {
+      if (state.mode === "storm" && linesUntilEvent <= 0 && cleared > 0) {
         linesUntilEvent = 5;
         overdriveActive = false; // clear any prior overdrive when a new event fires
         const event = RANDOM_EVENTS[Math.floor(Math.random() * RANDOM_EVENTS.length)];
@@ -344,6 +351,7 @@ export function tetrisReducer(state: TetrisState, action: TetrisAction): TetrisS
           level: newLevel,
           status: "over",
           combo: 0,
+          streak: 0,
           tSpinType: "none",
           lastClearWasTetrisOrTSpin: false,
           overdriveActive,
@@ -367,6 +375,7 @@ export function tetrisReducer(state: TetrisState, action: TetrisAction): TetrisS
         overdriveActive,
         linesUntilEvent: Math.max(linesUntilEvent, 0),
         combo: newCombo,
+        streak: newStreak,
         lastClearWasTetrisOrTSpin: cleared > 0 ? isTetrisOrTSpin : state.lastClearWasTetrisOrTSpin,
         tSpinType: cleared > 0 ? tSpinType : "none",
         lastWasRotation: false,

@@ -323,7 +323,11 @@ export default function TetrisPage() {
   }, [state.activeEvent]);
 
   const handleKey = useCallback((e: KeyboardEvent) => {
-    if (state.status === "idle" && e.key === " ") { e.preventDefault(); dispatch({ type: "START", mode: selectedMode ?? "storm" }); return; }
+    if (state.status === "idle" && e.key === " ") {
+      e.preventDefault();
+      if (selectedMode) dispatch({ type: "START", mode: selectedMode });
+      return;
+    }
     if (state.status !== "playing") return;
     switch (e.key) {
       case "ArrowLeft":  e.preventDefault(); dispatch({ type: "MOVE_LEFT" });  audioRef.current?.playMove(); break;
@@ -578,11 +582,67 @@ export default function TetrisPage() {
       {state.status === "idle" && (
         <div className="fixed inset-0 z-40 flex items-center justify-center pointer-events-none animate-[overlayIn_0.5s_ease-out]">
           <div className="absolute inset-0 bg-dark-bg/30 backdrop-blur-sm" />
-          <div className="relative flex flex-col items-center gap-4 pointer-events-auto">
+          <div className="relative flex flex-col items-center gap-5 pointer-events-auto">
             <div className="text-5xl animate-[floatUp_1s_ease-out_infinite_alternate]">🧱</div>
             <h2 className="text-sm neon-text-pink animate-[victoryGlow_1.5s_ease-in-out_infinite]">BLOCK STORM</h2>
-            <p className="text-[0.5rem] text-gray-500">PRESS SPACE TO START</p>
-            <PixelButton color="pink" onClick={() => dispatch({ type: "START", mode: selectedMode ?? "storm" })}>PLAY</PixelButton>
+
+            {!selectedMode ? (
+              <>
+                <p className="text-[0.45rem] text-gray-400 font-pixel">SELECT MODE</p>
+                <div className="flex gap-3">
+                  {(
+                    [
+                      { mode: "classic" as const, label: "CLASSIC", emoji: "🕹️", desc: ["Clean Tetris", "Combo + T-Spin"], color: "#00d4ff" },
+                      { mode: "zen"     as const, label: "ZEN",     emoji: "😌", desc: ["Chill vibes",  "Easy combos"],    color: "#39ff14" },
+                      { mode: "storm"   as const, label: "STORM",   emoji: "⚡", desc: ["Chaos events", "Lightning/Bombs"], color: "#ff2d95" },
+                    ]
+                  ).map(({ mode, label, emoji, desc, color }) => (
+                    <button
+                      key={mode}
+                      onClick={() => setSelectedMode(mode)}
+                      className="flex flex-col items-center gap-1 px-3 py-2 border font-pixel transition-all hover:scale-105"
+                      style={{
+                        borderColor: color + "66",
+                        backgroundColor: color + "11",
+                        color,
+                        minWidth: "72px",
+                      }}
+                    >
+                      <span className="text-xl">{emoji}</span>
+                      <span className="text-[0.45rem]">{label}</span>
+                      {desc.map((line, i) => (
+                        <span key={i} className="text-[0.35rem] opacity-60">{line}</span>
+                      ))}
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <>
+                <p
+                  className="text-[0.45rem] font-pixel"
+                  style={{
+                    color:
+                      selectedMode === "classic" ? "#00d4ff" :
+                      selectedMode === "zen"     ? "#39ff14" :
+                      "#ff2d95",
+                  }}
+                >
+                  {selectedMode === "classic" ? "CLASSIC MODE" :
+                   selectedMode === "zen"     ? "ZEN MODE"     :
+                   "STORM MODE"}
+                </p>
+                <p className="text-[0.4rem] text-gray-500 font-pixel">PRESS SPACE TO START</p>
+                <PixelButton
+                  color={selectedMode === "classic" ? "blue" : selectedMode === "zen" ? "green" : "pink"}
+                  onClick={() => dispatch({ type: "START", mode: selectedMode })}
+                >PLAY</PixelButton>
+                <button
+                  onClick={() => setSelectedMode(null)}
+                  className="text-[0.35rem] text-gray-600 font-pixel hover:text-gray-400 underline"
+                >CHANGE MODE</button>
+              </>
+            )}
           </div>
         </div>
       )}

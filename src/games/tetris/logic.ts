@@ -207,7 +207,7 @@ export function tetrisReducer(state: TetrisState, action: TetrisAction): TetrisS
     case "START":
       return { ...initialState(action.mode), status: "playing" };
     case "RESET":
-      return initialState();
+      return initialState(state.mode);
 
     case "CLEAR_EVENT":
       return { ...state, activeEvent: null, eventEndsAt: null };

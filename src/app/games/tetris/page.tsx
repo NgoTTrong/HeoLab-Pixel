@@ -29,6 +29,7 @@ const HELP: GameHelp = {
     { icon: "🌀", name: "T-SPIN",       desc: "Lock a T-piece via rotation with 3+ corners occupied for big bonus points." },
   ],
   specials: [
+    { icon: "⚡", name: "STORM ONLY", desc: "Random events (Lightning, Bombs, Freeze, Fever, Whirlwind, Overdrive, Curse) only appear in STORM mode." },
     { icon: "⚡", name: "LIGHTNING",   desc: "Clears one random filled row — a free gift from the storm." },
     { icon: "❄️", name: "ICE FREEZE",  desc: "Pauses auto-drop for 3 seconds — use the time wisely." },
     { icon: "🔥", name: "FEVER",       desc: "2× score multiplier for 30 seconds." },
@@ -370,7 +371,9 @@ export default function TetrisPage() {
   const eventDef = state.activeEvent ? RANDOM_EVENTS.find((e) => e.type === state.activeEvent) : null;
 
   return (
-    <GameLayout title="BLOCK STORM" color="pink" score={state.score} highScore={highScore} onNewGame={() => { setSelectedMode(null); dispatch({ type: "RESET" }); }} actions={<MuteButton muted={muted} onToggle={() => setMuted(m => !m)} color="pink" />} helpContent={HELP} gameKey="tetris">
+    <GameLayout title={
+      state.mode === "zen" ? "ZEN STORM" : "BLOCK STORM"
+    } color="pink" score={state.score} highScore={highScore} onNewGame={() => { setSelectedMode(null); dispatch({ type: "RESET" }); }} actions={<MuteButton muted={muted} onToggle={() => setMuted(m => !m)} color="pink" />} helpContent={HELP} gameKey="tetris">
       <div className="flex gap-4 items-start">
         {/* Hold */}
         <div className="flex flex-col gap-2 items-center">
@@ -669,7 +672,9 @@ export default function TetrisPage() {
           <div className="absolute inset-0 bg-dark-bg/30 backdrop-blur-sm" />
           <div className="relative flex flex-col items-center gap-4 pointer-events-auto">
             <div className="text-5xl animate-[floatUp_1s_ease-out_infinite_alternate]">💥</div>
-            <h2 className="text-lg sm:text-xl neon-text-pink animate-[defeatFlash_1s_ease-in-out_infinite]">CASTLE FELL!</h2>
+            <h2 className="text-lg sm:text-xl neon-text-pink animate-[defeatFlash_1s_ease-in-out_infinite]">
+              {state.mode === "zen" ? "STAY ZEN..." : "CASTLE FELL!"}
+            </h2>
             <p className="text-[0.6rem] text-neon-pink/70">SCORE: {state.score} · BEST: {highScore} · LVL {state.level}</p>
             <PixelButton color="pink" onClick={() => dispatch({ type: "START", mode: selectedMode ?? "storm" })}>TRY AGAIN</PixelButton>
           </div>

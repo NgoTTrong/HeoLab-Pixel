@@ -19,6 +19,8 @@ export const RANDOM_EVENTS: EventDef[] = [
   { type: "curse",     emoji: "💀", label: "CURSE!",            color: "#39ff14" },
 ];
 
+export type GameMode = "classic" | "zen" | "storm";
+
 export const BOARD_COLS = 10;
 export const BOARD_ROWS = 20;
 
@@ -41,6 +43,31 @@ export function getSpeed(level: number): number {
   }
   return ms;
 }
+
+export const ZEN_LEVEL_SPEEDS: { level: number; ms: number }[] = [
+  { level: 1,  ms: 1100 },
+  { level: 2,  ms: 950 },
+  { level: 3,  ms: 820 },
+  { level: 5,  ms: 700 },
+  { level: 7,  ms: 560 },
+  { level: 10, ms: 420 },
+  { level: 13, ms: 320 },
+  { level: 16, ms: 240 },
+  { level: 20, ms: 170 },
+];
+
+export function getZenSpeed(level: number): number {
+  let ms = ZEN_LEVEL_SPEEDS[0].ms;
+  for (const l of ZEN_LEVEL_SPEEDS) {
+    if (level >= l.level) ms = l.ms;
+  }
+  return ms;
+}
+
+// Weights for Zen piece bag: I/O/L/J spawn more often, S/Z less
+export const ZEN_PIECE_WEIGHTS: Record<string, number> = {
+  I: 3, O: 2, L: 2, J: 2, T: 2, S: 1, Z: 1,
+};
 
 // Score per lines cleared (base)
 export const LINE_SCORES = [0, 100, 300, 500, 800];

@@ -91,3 +91,17 @@ export function createBag(): TetrominoType[] {
   }
   return bag;
 }
+
+export function createWeightedBag(weights: Record<string, number>): TetrominoType[] {
+  const pool: TetrominoType[] = [];
+  for (const type of Object.keys(TETROMINOES) as TetrominoType[]) {
+    const w = weights[type] ?? 1;
+    for (let i = 0; i < w; i++) pool.push(type);
+  }
+  // Fisher-Yates shuffle
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  return pool;
+}

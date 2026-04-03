@@ -336,7 +336,7 @@ export default function TetrisPage() {
       case " ":          e.preventDefault(); dispatch({ type: "HARD_DROP" }); triggerShake("light"); break;
       case "c": case "C": dispatch({ type: "HOLD" }); break;
     }
-  }, [state.status, triggerShake]);
+  }, [state.status, triggerShake, selectedMode]);
 
   useEffect(() => {
     window.addEventListener("keydown", handleKey);

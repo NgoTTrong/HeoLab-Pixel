@@ -151,24 +151,25 @@ export default function TetrisPage() {
     setTimeout(() => setPopups(prev => prev.filter(p => p.id !== id)), 1200);
   }, []);
 
-  const spawnParticles = useCallback((rows: number[]) => {
+  const spawnParticles = useCallback((rows: number[], mode: GameMode = "storm") => {
     if (rows.length === 0) return;
     const newParticles: Particle[] = [];
     const isTetris = rows.length >= 4;
+    const isZen = mode === "zen";
     for (const r of rows) {
       for (let c = 0; c < BOARD_COLS; c++) {
-        const count = isTetris ? 5 : 3;
+        const count = isTetris ? (isZen ? 8 : 5) : (isZen ? 5 : 3);
         for (let i = 0; i < count; i++) {
           const colors = ["#39ff14","#ff2d95","#ffe600","#00d4ff","#a855f7","#f97316"];
           newParticles.push({
             id: ++particleIdRef.current,
             x:  c * CELL_SIZE + CELL_SIZE / 2,
             y:  r * CELL_SIZE + CELL_SIZE / 2,
-            vx: (Math.random() - 0.5) * 8,
-            vy: (Math.random() - 0.9) * 7,
+            vx: (Math.random() - 0.5) * (isZen ? 10 : 8),
+            vy: (Math.random() - 0.9) * (isZen ? 10 : 7),
             color: colors[Math.floor(Math.random() * colors.length)],
             life: 1.0,
-            size: Math.random() * 4 + 2,
+            size: isZen ? Math.random() * 6 + 3 : Math.random() * 4 + 2,
           });
         }
       }
@@ -238,7 +239,7 @@ export default function TetrisPage() {
     if (delta > 0) {
       setFlashRows(state.lastClearedRows);
       setTimeout(() => setFlashRows([]), 150);
-      spawnParticles(state.lastClearedRows);
+      spawnParticles(state.lastClearedRows, state.mode);
       triggerShake(delta >= 4 ? "medium" : "light");
       audioRef.current?.playClear(delta);
 

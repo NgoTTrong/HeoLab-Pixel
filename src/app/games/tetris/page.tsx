@@ -355,7 +355,11 @@ export default function TetrisPage() {
   const ghostCells = new Set(
     getAbsCells({ ...state.active, row: ghostR }).map(([c, r]) => `${c},${r}`)
   );
-  const activeColor = TETROMINOES[state.active.type].color;
+  const zenColors = ["#39ff14","#00d4ff","#a855f7","#ff2d95","#ffe600","#f97316","#39ff14"];
+  const activeColor =
+    state.mode === "zen" && state.combo >= 1
+      ? zenColors[state.combo % zenColors.length]
+      : TETROMINOES[state.active.type].color;
   const eventDef = state.activeEvent ? RANDOM_EVENTS.find((e) => e.type === state.activeEvent) : null;
 
   return (

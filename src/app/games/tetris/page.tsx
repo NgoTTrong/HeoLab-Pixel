@@ -129,6 +129,7 @@ export default function TetrisPage() {
   const particleRafRef = useRef<number | null>(null);
   const prevEventRef = useRef<string | null>(null);
   const prevB2BRef = useRef(false);
+  const [slowMo, setSlowMo] = useState(false);
 
   const gameKey = state.mode === "classic" ? "tetris-classic"
     : state.mode === "zen" ? "tetris-zen"
@@ -258,6 +259,10 @@ export default function TetrisPage() {
       if (prevB2BRef.current && (delta === 4 || state.tSpinType !== "none")) {
         addPopup("BACK TO BACK!", "#00d4ff", topRow + 60, "special");
       }
+      if (state.mode === "zen" && delta >= 2) {
+        setSlowMo(true);
+        setTimeout(() => setSlowMo(false), 400);
+      }
     }
     prevLinesRef.current = state.lines;
     prevScoreRef.current = state.score;
@@ -285,13 +290,14 @@ export default function TetrisPage() {
   useEffect(() => {
     if (state.status !== "playing") return;
     const speedFn = state.mode === "zen" ? getZenSpeed : getSpeed;
+    const baseMsVal = speedFn(state.level);
     const ms = Math.max(
       50,
-      Math.floor(speedFn(state.level) / (state.overdriveActive ? OVERDRIVE_SPEED_MULT : 1))
+      Math.floor((slowMo ? baseMsVal * 2 : baseMsVal) / (state.overdriveActive ? OVERDRIVE_SPEED_MULT : 1))
     );
     const id = setInterval(() => dispatch({ type: "TICK", now: Date.now() }), ms);
     return () => clearInterval(id);
-  }, [state.status, state.level, state.overdriveActive, state.mode]);
+  }, [state.status, state.level, state.overdriveActive, state.mode, slowMo]);
 
   useEffect(() => {
     if (state.status === "over" && state.score > highScore) {

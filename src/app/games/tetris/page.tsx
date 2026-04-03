@@ -369,6 +369,11 @@ export default function TetrisPage() {
           </div>
           <span className="font-pixel text-[0.4rem] text-gray-600">LVL {state.level}</span>
           <span className="font-pixel text-[0.4rem] text-gray-600">LINES {state.lines}</span>
+          {state.mode === "classic" && (
+            <span className="font-pixel text-[0.4rem] text-neon-blue/80">
+              STREAK {state.streak}
+            </span>
+          )}
         </div>
 
         {/* Board */}

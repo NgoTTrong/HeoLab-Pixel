@@ -4,7 +4,8 @@ import { useReducer, useEffect, useCallback, useState, useRef } from "react";
 import GameLayout from "@/components/GameLayout";
 import PixelButton from "@/components/PixelButton";
 import { tetrisReducer, getAbsCells, ghostRow } from "@/games/tetris/logic";
-import { BOARD_COLS, BOARD_ROWS, RANDOM_EVENTS, getSpeed, OVERDRIVE_SPEED_MULT } from "@/games/tetris/config";
+import { BOARD_COLS, BOARD_ROWS, RANDOM_EVENTS, getSpeed, getZenSpeed, OVERDRIVE_SPEED_MULT } from "@/games/tetris/config";
+import type { GameMode } from "@/games/tetris/config";
 import { TETROMINOES, type TetrominoType } from "@/games/tetris/tetrominoes";
 import { getHighScore, setHighScore } from "@/lib/scores";
 import { createTetrisAudio } from "@/games/tetris/audio";
@@ -57,7 +58,6 @@ interface Popup {
   type: "score" | "combo" | "special";
 }
 
-const GAME_KEY = "tetris";
 const CELL_SIZE = 28; // px
 
 function MiniPiece({ type }: { type: TetrominoType }) {
@@ -84,6 +84,7 @@ function MiniPiece({ type }: { type: TetrominoType }) {
 }
 
 export default function TetrisPage() {
+  const [selectedMode, setSelectedMode] = useState<GameMode | null>(null);
   const [state, dispatch] = useReducer(tetrisReducer, undefined, () => {
     return {
       board: Array.from({ length: BOARD_ROWS }, () => Array(BOARD_COLS).fill(null)),
@@ -105,6 +106,8 @@ export default function TetrisPage() {
       overdriveActive: false,
       lastWasRotation: false,
       lastClearedRows: [],
+      mode: "storm" as const,
+      streak: 0,
     };
   });
   const [highScore, setHS] = useState(0);
@@ -126,6 +129,10 @@ export default function TetrisPage() {
   const particleRafRef = useRef<number | null>(null);
   const prevEventRef = useRef<string | null>(null);
   const prevB2BRef = useRef(false);
+
+  const gameKey = state.mode === "classic" ? "tetris-classic"
+    : state.mode === "zen" ? "tetris-zen"
+    : "tetris";
 
   const triggerShake = useCallback((intensity: "light" | "medium" | "heavy") => {
     const cls = {
@@ -168,7 +175,7 @@ export default function TetrisPage() {
     setParticles(prev => [...prev, ...newParticles]);
   }, []);
 
-  useEffect(() => { setHS(getHighScore(GAME_KEY)); }, []);
+  useEffect(() => { setHS(getHighScore(gameKey)); }, [gameKey]);
 
   // Lazy-init audio on first interaction
   useEffect(() => {
@@ -277,20 +284,21 @@ export default function TetrisPage() {
 
   useEffect(() => {
     if (state.status !== "playing") return;
+    const speedFn = state.mode === "zen" ? getZenSpeed : getSpeed;
     const ms = Math.max(
       50,
-      Math.floor(getSpeed(state.level) / (state.overdriveActive ? OVERDRIVE_SPEED_MULT : 1))
+      Math.floor(speedFn(state.level) / (state.overdriveActive ? OVERDRIVE_SPEED_MULT : 1))
     );
     const id = setInterval(() => dispatch({ type: "TICK", now: Date.now() }), ms);
     return () => clearInterval(id);
-  }, [state.status, state.level, state.overdriveActive]);
+  }, [state.status, state.level, state.overdriveActive, state.mode]);
 
   useEffect(() => {
     if (state.status === "over" && state.score > highScore) {
-      setHighScore(GAME_KEY, state.score);
+      setHighScore(gameKey, state.score);
       setHS(state.score);
     }
-  }, [state.status, state.score, highScore]);
+  }, [state.status, state.score, highScore, gameKey]);
 
   // Auto-clear event banner after 2s
   useEffect(() => {
@@ -315,7 +323,7 @@ export default function TetrisPage() {
   }, [state.activeEvent]);
 
   const handleKey = useCallback((e: KeyboardEvent) => {
-    if (state.status === "idle" && e.key === " ") { e.preventDefault(); dispatch({ type: "START" }); return; }
+    if (state.status === "idle" && e.key === " ") { e.preventDefault(); dispatch({ type: "START", mode: selectedMode ?? "storm" }); return; }
     if (state.status !== "playing") return;
     switch (e.key) {
       case "ArrowLeft":  e.preventDefault(); dispatch({ type: "MOVE_LEFT" });  audioRef.current?.playMove(); break;
@@ -347,7 +355,7 @@ export default function TetrisPage() {
   const eventDef = state.activeEvent ? RANDOM_EVENTS.find((e) => e.type === state.activeEvent) : null;
 
   return (
-    <GameLayout title="BLOCK STORM" color="pink" score={state.score} highScore={highScore} onNewGame={() => dispatch({ type: "START" })} actions={<MuteButton muted={muted} onToggle={() => setMuted(m => !m)} color="pink" />} helpContent={HELP} gameKey="tetris">
+    <GameLayout title="BLOCK STORM" color="pink" score={state.score} highScore={highScore} onNewGame={() => { setSelectedMode(null); dispatch({ type: "RESET" }); }} actions={<MuteButton muted={muted} onToggle={() => setMuted(m => !m)} color="pink" />} helpContent={HELP} gameKey="tetris">
       <div className="flex gap-4 items-start">
         {/* Hold */}
         <div className="flex flex-col gap-2 items-center">
@@ -574,7 +582,7 @@ export default function TetrisPage() {
             <div className="text-5xl animate-[floatUp_1s_ease-out_infinite_alternate]">🧱</div>
             <h2 className="text-sm neon-text-pink animate-[victoryGlow_1.5s_ease-in-out_infinite]">BLOCK STORM</h2>
             <p className="text-[0.5rem] text-gray-500">PRESS SPACE TO START</p>
-            <PixelButton color="pink" onClick={() => dispatch({ type: "START" })}>PLAY</PixelButton>
+            <PixelButton color="pink" onClick={() => dispatch({ type: "START", mode: selectedMode ?? "storm" })}>PLAY</PixelButton>
           </div>
         </div>
       )}
@@ -587,7 +595,7 @@ export default function TetrisPage() {
             <div className="text-5xl animate-[floatUp_1s_ease-out_infinite_alternate]">💥</div>
             <h2 className="text-lg sm:text-xl neon-text-pink animate-[defeatFlash_1s_ease-in-out_infinite]">CASTLE FELL!</h2>
             <p className="text-[0.6rem] text-neon-pink/70">SCORE: {state.score} · BEST: {highScore} · LVL {state.level}</p>
-            <PixelButton color="pink" onClick={() => dispatch({ type: "START" })}>TRY AGAIN</PixelButton>
+            <PixelButton color="pink" onClick={() => dispatch({ type: "START", mode: selectedMode ?? "storm" })}>TRY AGAIN</PixelButton>
           </div>
         </div>
       )}

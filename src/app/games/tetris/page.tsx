@@ -39,6 +39,7 @@ const HELP: GameHelp = {
     { icon: "💀", name: "CURSE",       desc: "Adds 3 garbage rows from the bottom. Much worse than a bomb." },
     { icon: "👻", name: "GHOST PIECE", desc: "Faint outline shows where the piece will land." },
     { icon: "⏩", name: "SPEED UP",    desc: "Every 10 lines increases fall speed. At level 15 the board starts glitching." },
+    { icon: "✨", name: "ZEN FLOW",    desc: "Build combos to enter Flow (1.5×) → Deep Flow (2×) → Transcendence (3×). Break combo resets your flow." },
   ],
 };
 
@@ -709,7 +710,7 @@ export default function TetrisPage() {
                   {(
                     [
                       { mode: "classic" as const, label: "CLASSIC", emoji: "🕹️", desc: ["Clean Tetris", "Combo + T-Spin"], color: "#00d4ff" },
-                      { mode: "zen"     as const, label: "ZEN",     emoji: "😌", desc: ["Chill vibes",  "Easy combos"],    color: "#39ff14" },
+                      { mode: "zen"     as const, label: "ZEN",     emoji: "😌", desc: ["Build your Flow", "Combo to transcend"], color: "#39ff14" },
                       { mode: "storm"   as const, label: "STORM",   emoji: "⚡", desc: ["Chaos events", "Lightning/Bombs"], color: "#ff2d95" },
                     ]
                   ).map(({ mode, label, emoji, desc, color }) => (

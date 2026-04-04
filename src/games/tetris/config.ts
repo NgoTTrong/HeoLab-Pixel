@@ -104,13 +104,16 @@ export interface ZenFlowTier {
   borderColor: string;
 }
 
+// Tiers MUST be ordered highest minCombo first — getZenFlowTier uses Array.find
+// and returns the first match (i.e. the highest active tier).
 export const ZEN_FLOW_TIERS: ZenFlowTier[] = [
   { minCombo: 10, label: "TRANSCENDENCE", banner: "TRANSCENDENCE!", mult: 3,   color: "#ffffff", borderColor: "#ffffff" },
   { minCombo: 6,  label: "DEEP FLOW",     banner: "DEEP FLOW!",     mult: 2,   color: "#a855f7", borderColor: "#ff2d95" },
   { minCombo: 3,  label: "FLOW",          banner: "FLOW!",          mult: 1.5, color: "#39ff14", borderColor: "#39ff14" },
 ];
 
-// Returns the active tier for a given combo count, or null if below threshold
+// Returns the active tier for a given combo count, or null if below threshold.
+// Pass the post-increment value (newCombo after a clear, which starts at 1).
 export function getZenFlowTier(combo: number): ZenFlowTier | null {
   return ZEN_FLOW_TIERS.find(t => combo >= t.minCombo) ?? null;
 }

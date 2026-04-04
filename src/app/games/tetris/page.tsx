@@ -567,16 +567,16 @@ export default function TetrisPage() {
                 <>
                   <div className="absolute inset-0"
                     style={{ background: "radial-gradient(ellipse at center, rgba(168,85,247,0.15) 0%, transparent 70%)" }} />
-                  <div className="absolute inset-0 border border-pink-500/30"
-                    style={{ animation: "pulseRing 2s ease-out infinite" }} />
+                  <div className="absolute inset-0 border border-pink-500/50"
+                    style={{ animation: "zenBorderPulse 2s ease-in-out infinite" }} />
                 </>
               )}
               {zenFlowTier.label === "TRANSCENDENCE" && (
                 <>
                   <div className="absolute inset-0"
                     style={{ background: "radial-gradient(ellipse at center, rgba(255,255,255,0.1) 0%, transparent 60%)" }} />
-                  <div className="absolute inset-0 border border-white/40"
-                    style={{ animation: "pulseRing 0.8s ease-out infinite" }} />
+                  <div className="absolute inset-0 border border-white/60"
+                    style={{ animation: "zenBorderPulse 0.8s ease-in-out infinite" }} />
                 </>
               )}
             </div>

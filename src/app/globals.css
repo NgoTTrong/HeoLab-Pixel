@@ -387,6 +387,11 @@ body {
   100% { transform: scale(1.6); opacity: 0; }
 }
 
+@keyframes zenBorderPulse {
+  0%, 100% { opacity: 0.3; }
+  50%       { opacity: 1; }
+}
+
 @keyframes particleFade {
   0%   { opacity: 1; transform: translateY(0) scale(1); }
   100% { opacity: 0; transform: translateY(-8px) scale(0.3); }

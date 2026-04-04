@@ -4,7 +4,7 @@ import { useReducer, useEffect, useCallback, useState, useRef } from "react";
 import GameLayout from "@/components/GameLayout";
 import PixelButton from "@/components/PixelButton";
 import { tetrisReducer, getAbsCells, ghostRow } from "@/games/tetris/logic";
-import { BOARD_COLS, BOARD_ROWS, RANDOM_EVENTS, getSpeed, getZenSpeed, OVERDRIVE_SPEED_MULT } from "@/games/tetris/config";
+import { BOARD_COLS, BOARD_ROWS, RANDOM_EVENTS, getSpeed, getZenSpeed, OVERDRIVE_SPEED_MULT, getZenFlowTier, ZEN_FLOW_TIERS } from "@/games/tetris/config";
 import type { GameMode } from "@/games/tetris/config";
 import { TETROMINOES, type TetrominoType } from "@/games/tetris/tetrominoes";
 import { getHighScore, setHighScore } from "@/lib/scores";
@@ -370,6 +370,15 @@ export default function TetrisPage() {
       : TETROMINOES[state.active.type].color;
   const eventDef = state.activeEvent ? RANDOM_EVENTS.find((e) => e.type === state.activeEvent) : null;
 
+  // Zen Flow
+  const zenFlowTier = state.mode === "zen" ? getZenFlowTier(state.combo) : null;
+  const zenNextTierMin = state.mode === "zen"
+    ? ([...ZEN_FLOW_TIERS].reverse().find(t => t.minCombo > state.combo)?.minCombo ?? ZEN_FLOW_TIERS[0].minCombo)
+    : 0;
+  const zenFlowProgress = state.mode === "zen"
+    ? Math.min(state.combo / zenNextTierMin, 1)
+    : 0;
+
   return (
     <GameLayout title={
       state.mode === "zen" ? "ZEN STORM" : "BLOCK STORM"
@@ -387,6 +396,44 @@ export default function TetrisPage() {
             <span className="font-pixel text-[0.4rem] text-neon-blue/80">
               STREAK {state.streak}
             </span>
+          )}
+          {state.mode === "zen" && (
+            <div className="flex flex-col items-center gap-1 mt-1">
+              <span className="font-pixel text-[0.35rem] text-gray-600">FLOW</span>
+              {/* Bar track */}
+              <div
+                className="w-3 rounded-sm overflow-hidden"
+                style={{ height: 60, backgroundColor: "#1a1a2e", border: "1px solid #2a2a4a" }}
+              >
+                {/* Fill from bottom */}
+                <div
+                  style={{
+                    position: "relative",
+                    height: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "flex-end",
+                  }}
+                >
+                  <div
+                    style={{
+                      height: `${zenFlowProgress * 100}%`,
+                      backgroundColor: zenFlowTier?.color ?? "#39ff14",
+                      boxShadow: zenFlowTier ? `0 0 6px ${zenFlowTier.color}` : undefined,
+                      transition: "height 0.3s ease-out, background-color 0.5s ease",
+                    }}
+                  />
+                </div>
+              </div>
+              {zenFlowTier && (
+                <span
+                  className="font-pixel text-[0.3rem]"
+                  style={{ color: zenFlowTier.color, textShadow: `0 0 4px ${zenFlowTier.color}` }}
+                >
+                  {zenFlowTier.mult}×
+                </span>
+              )}
+            </div>
           )}
         </div>
 

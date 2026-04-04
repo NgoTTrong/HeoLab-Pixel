@@ -130,6 +130,7 @@ export default function TetrisPage() {
   const particleRafRef = useRef<number | null>(null);
   const prevEventRef = useRef<string | null>(null);
   const prevB2BRef = useRef(false);
+  const prevZenTierRef = useRef<string | null>(null);
   const [slowMo, setSlowMo] = useState(false);
 
   const gameKey = state.mode === "classic" ? "tetris-classic"
@@ -261,10 +262,24 @@ export default function TetrisPage() {
       if (prevB2BRef.current && (delta === 4 || state.tSpinType !== "none")) {
         addPopup("BACK TO BACK!", "#00d4ff", topRow + 60, "special");
       }
+      // Zen Flow tier banner
+      if (state.mode === "zen") {
+        const tier = getZenFlowTier(state.combo);
+        const tierLabel = tier?.label ?? null;
+        if (tierLabel !== prevZenTierRef.current) {
+          prevZenTierRef.current = tierLabel;
+          if (tier) {
+            addPopup(tier.banner, tier.color, topRow - 20, "special");
+          }
+        }
+      }
       if (state.mode === "zen" && delta >= 2) {
         setSlowMo(true);
         setTimeout(() => setSlowMo(false), 400);
       }
+    }
+    if (state.combo === 0 && state.mode === "zen") {
+      prevZenTierRef.current = null;
     }
     prevLinesRef.current = state.lines;
     prevScoreRef.current = state.score;

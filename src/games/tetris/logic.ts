@@ -2,7 +2,7 @@ import {
   BOARD_COLS, BOARD_ROWS, LINE_SCORES, RANDOM_EVENTS, getSpeed,
   COMBO_BONUSES, TSPIN_SCORES, BACK_TO_BACK_MULT,
   OVERDRIVE_SCORE_MULT, OVERDRIVE_DURATION, FEVER_DURATION, FREEZE_DURATION,
-  GARBAGE_ROWS_BOMB, GARBAGE_ROWS_CURSE, ZEN_PIECE_WEIGHTS,
+  GARBAGE_ROWS_BOMB, GARBAGE_ROWS_CURSE, ZEN_PIECE_WEIGHTS, getZenFlowTier,
 } from "./config";
 import type { EventType, TSpinKind, GameMode } from "./config";
 import { TETROMINOES, createBag, createWeightedBag } from "./tetrominoes";
@@ -286,14 +286,17 @@ export function tetrisReducer(state: TetrisState, action: TetrisAction): TetrisS
       const b2bMult = (state.lastClearWasTetrisOrTSpin && isTetrisOrTSpin && cleared > 0)
         ? BACK_TO_BACK_MULT : 1;
 
-      // Fever + Overdrive multipliers
-      const scoreMult = (isFever ? 2 : 1) * (isOverdrive ? OVERDRIVE_SCORE_MULT : 1);
+      // Combo (declared early so Zen Flow tier can read newCombo)
+      const newCombo   = cleared > 0 ? state.combo + 1 : 0;
+      const newStreak  = cleared > 0 ? state.streak + 1 : 0;
+
+      // Fever + Overdrive + Zen Flow multipliers
+      const zenFlowTier = state.mode === "zen" ? getZenFlowTier(newCombo) : null;
+      const zenFlowMult = zenFlowTier?.mult ?? 1;
+      const scoreMult = (isFever ? 2 : 1) * (isOverdrive ? OVERDRIVE_SCORE_MULT : 1) * zenFlowMult;
 
       const lineScore  = Math.floor(baseScore * b2bMult * scoreMult);
 
-      // Combo
-      const newCombo   = cleared > 0 ? state.combo + 1 : 0;
-      const newStreak  = cleared > 0 ? state.streak + 1 : 0;
       const comboBonus = cleared > 0
         ? Math.floor((COMBO_BONUSES[Math.min(newCombo, COMBO_BONUSES.length - 1)] ?? 400) * scoreMult)
         : 0;

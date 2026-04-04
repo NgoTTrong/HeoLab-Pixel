@@ -160,9 +160,9 @@ export default function TetrisPage() {
     const newParticles: Particle[] = [];
     const isTetris = rows.length >= 4;
     const isZen = mode === "zen";
+    const isTranscendence = zenTierLabel === "TRANSCENDENCE";
     for (const r of rows) {
       for (let c = 0; c < BOARD_COLS; c++) {
-        const isTranscendence = zenTierLabel === "TRANSCENDENCE";
         const count = isTranscendence ? 14
           : isTetris ? (isZen ? 8 : 5)
           : (isZen ? 5 : 3);

@@ -39,6 +39,7 @@ const HELP: GameHelp = {
     { icon: "💀", name: "CURSE",       desc: "Adds 3 garbage rows from the bottom. Much worse than a bomb." },
     { icon: "👻", name: "GHOST PIECE", desc: "Faint outline shows where the piece will land." },
     { icon: "⏩", name: "SPEED UP",    desc: "Every 10 lines increases fall speed. At level 15 the board starts glitching." },
+    { icon: "😌", name: "ZEN ONLY",    desc: "The following mechanic only appears in ZEN mode." },
     { icon: "✨", name: "ZEN FLOW",    desc: "Build combos to enter Flow (1.5×) → Deep Flow (2×) → Transcendence (3×). Break combo resets your flow." },
   ],
 };

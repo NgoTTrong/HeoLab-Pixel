@@ -373,10 +373,11 @@ export default function TetrisPage() {
   // Zen Flow
   const zenFlowTier = state.mode === "zen" ? getZenFlowTier(state.combo) : null;
   const zenNextTierMin = state.mode === "zen"
-    ? ([...ZEN_FLOW_TIERS].reverse().find(t => t.minCombo > state.combo)?.minCombo ?? ZEN_FLOW_TIERS[0].minCombo)
-    : 0;
-  const zenFlowProgress = state.mode === "zen"
+    ? (ZEN_FLOW_TIERS.slice().reverse().find(t => t.minCombo > state.combo)?.minCombo ?? null)
+    : null;
+  const zenFlowProgress = state.mode === "zen" && zenNextTierMin != null
     ? Math.min(state.combo / zenNextTierMin, 1)
+    : state.mode === "zen" ? 1  // at or above top tier — bar stays full
     : 0;
 
   return (

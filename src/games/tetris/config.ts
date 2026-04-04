@@ -99,7 +99,7 @@ export interface ZenFlowTier {
   minCombo: number;
   label: string;
   banner: string;
-  mult: number;       // lineScore multiplier
+  mult: number;       // score multiplier (applies to lineScore and comboBonus)
   color: string;      // primary glow color
   borderColor: string;
 }

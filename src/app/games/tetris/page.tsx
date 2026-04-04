@@ -269,7 +269,7 @@ export default function TetrisPage() {
         if (tierLabel !== prevZenTierRef.current) {
           prevZenTierRef.current = tierLabel;
           if (tier) {
-            addPopup(tier.banner, tier.color, topRow - 20, "special");
+            addPopup(tier.banner, tier.color, Math.max(0, topRow - 20), "special");
           }
         }
       }

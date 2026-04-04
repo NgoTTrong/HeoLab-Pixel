@@ -94,3 +94,23 @@ export const FEVER_DURATION       = 30000;
 export const FREEZE_DURATION      = 3000;
 export const GARBAGE_ROWS_BOMB    = 2;
 export const GARBAGE_ROWS_CURSE   = 3;
+
+export interface ZenFlowTier {
+  minCombo: number;
+  label: string;
+  banner: string;
+  mult: number;       // lineScore multiplier
+  color: string;      // primary glow color
+  borderColor: string;
+}
+
+export const ZEN_FLOW_TIERS: ZenFlowTier[] = [
+  { minCombo: 10, label: "TRANSCENDENCE", banner: "TRANSCENDENCE!", mult: 3,   color: "#ffffff", borderColor: "#ffffff" },
+  { minCombo: 6,  label: "DEEP FLOW",     banner: "DEEP FLOW!",     mult: 2,   color: "#a855f7", borderColor: "#ff2d95" },
+  { minCombo: 3,  label: "FLOW",          banner: "FLOW!",          mult: 1.5, color: "#39ff14", borderColor: "#39ff14" },
+];
+
+// Returns the active tier for a given combo count, or null if below threshold
+export function getZenFlowTier(combo: number): ZenFlowTier | null {
+  return ZEN_FLOW_TIERS.find(t => combo >= t.minCombo) ?? null;
+}

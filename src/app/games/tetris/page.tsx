@@ -153,16 +153,21 @@ export default function TetrisPage() {
     setTimeout(() => setPopups(prev => prev.filter(p => p.id !== id)), 1200);
   }, []);
 
-  const spawnParticles = useCallback((rows: number[], mode: GameMode = "storm") => {
+  const spawnParticles = useCallback((rows: number[], mode: GameMode = "storm", zenTierLabel?: string) => {
     if (rows.length === 0) return;
     const newParticles: Particle[] = [];
     const isTetris = rows.length >= 4;
     const isZen = mode === "zen";
     for (const r of rows) {
       for (let c = 0; c < BOARD_COLS; c++) {
-        const count = isTetris ? (isZen ? 8 : 5) : (isZen ? 5 : 3);
+        const isTranscendence = zenTierLabel === "TRANSCENDENCE";
+        const count = isTranscendence ? 14
+          : isTetris ? (isZen ? 8 : 5)
+          : (isZen ? 5 : 3);
         for (let i = 0; i < count; i++) {
-          const colors = ["#39ff14","#ff2d95","#ffe600","#00d4ff","#a855f7","#f97316"];
+          const colors = isTranscendence
+            ? ["#ffffff","#ffe600","#00d4ff","#ff2d95","#39ff14","#a855f7"]
+            : ["#39ff14","#ff2d95","#ffe600","#00d4ff","#a855f7","#f97316"];
           newParticles.push({
             id: ++particleIdRef.current,
             x:  c * CELL_SIZE + CELL_SIZE / 2,
@@ -171,7 +176,9 @@ export default function TetrisPage() {
             vy: (Math.random() - 0.9) * (isZen ? 10 : 7),
             color: colors[Math.floor(Math.random() * colors.length)],
             life: 1.0,
-            size: isZen ? Math.random() * 6 + 3 : Math.random() * 4 + 2,
+            size: isTranscendence
+              ? Math.random() * 8 + 4
+              : isZen ? Math.random() * 6 + 3 : Math.random() * 4 + 2,
           });
         }
       }
@@ -241,7 +248,8 @@ export default function TetrisPage() {
     if (delta > 0) {
       setFlashRows(state.lastClearedRows);
       setTimeout(() => setFlashRows([]), 150);
-      spawnParticles(state.lastClearedRows, state.mode);
+      const currentFlowTier = state.mode === "zen" ? getZenFlowTier(state.combo) : null;
+      spawnParticles(state.lastClearedRows, state.mode, currentFlowTier?.label);
       triggerShake(delta >= 4 ? "medium" : "light");
       audioRef.current?.playClear(delta);
 
@@ -545,6 +553,32 @@ export default function TetrisPage() {
               <div className="absolute inset-x-0 bottom-0 h-1/3"
                 style={{ background: "linear-gradient(to top, rgba(57,255,20,0.2), transparent)" }} />
               <div className="absolute inset-0 border border-neon-green/30" />
+            </div>
+          )}
+
+          {/* Zen Flow overlay */}
+          {state.mode === "zen" && zenFlowTier && (
+            <div className="absolute inset-0 pointer-events-none z-20 overflow-hidden">
+              {zenFlowTier.label === "FLOW" && (
+                <div className="absolute inset-0"
+                  style={{ background: "radial-gradient(ellipse at bottom, rgba(57,255,20,0.12) 0%, transparent 70%)" }} />
+              )}
+              {zenFlowTier.label === "DEEP FLOW" && (
+                <>
+                  <div className="absolute inset-0"
+                    style={{ background: "radial-gradient(ellipse at center, rgba(168,85,247,0.15) 0%, transparent 70%)" }} />
+                  <div className="absolute inset-0 border border-pink-500/30"
+                    style={{ animation: "pulseRing 2s ease-out infinite" }} />
+                </>
+              )}
+              {zenFlowTier.label === "TRANSCENDENCE" && (
+                <>
+                  <div className="absolute inset-0"
+                    style={{ background: "radial-gradient(ellipse at center, rgba(255,255,255,0.1) 0%, transparent 60%)" }} />
+                  <div className="absolute inset-0 border border-white/40"
+                    style={{ animation: "pulseRing 0.8s ease-out infinite" }} />
+                </>
+              )}
             </div>
           )}
 
